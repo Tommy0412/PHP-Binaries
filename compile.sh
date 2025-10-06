@@ -403,8 +403,23 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 
 		write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
 	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
+	elif [ "$COMPILE_TARGET" == "android-arm" ]; then
+		COMPILE_FOR_ANDROID=yes
+		[ -z "$march" ] && march="armv7-a";
+		[ -z "$mtune" ] && mtune=generic;
+		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
+		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+		CFLAGS="-static $CFLAGS"
+		CXXFLAGS="-static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -Wl,-static"
+		DO_STATIC="yes"
+		OPENSSL_TARGET="linux-armv4"
+		export ac_cv_func_fnmatch_works=yes #musl should be OK
+
+		write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
+	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
 	else
-		write_error "Please supply a proper platform [android-aarch64] to cross-compile"
+		write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
 		exit 1
 	fi
 else
