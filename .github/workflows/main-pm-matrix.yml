@@ -8,13 +8,36 @@ on:
         required: true
         type: number
       special-release:
-        description: 'Special release type to create (pm-default-latest, pm-default, none)'
+        description: 'Special release type to create (default-latest, default, none)'
         required: true
         type: string
       pm-preview:
         description: "Mark releases as pre-release"
         required: true
         type: boolean
+  workflow_dispatch:
+    inputs:
+      pm-version-major:
+        description: 'PocketMine-MP major version'
+        required: true
+        type: choice
+        options:
+          - '5'
+        default: '5'
+      special-release:
+        description: 'Special release type to create'
+        required: true
+        type: choice
+        options:
+          - 'none'
+          - 'default'
+          - 'default-latest'
+        default: 'none'
+      pm-preview:
+        description: 'Mark releases as pre-release'
+        required: true
+        type: boolean
+        default: false
 
 env:
   MUSL_CROSS_MAKE_VERSION: 43fcb1e63786b96add78f89d7454709ae0159fa0
@@ -209,4 +232,3 @@ jobs:
           bodyFile: ${{ github.workspace }}/changelog.md
           makeLatest: false
           prerelease: ${{ inputs.pm-preview == true }}
-
