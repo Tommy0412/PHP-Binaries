@@ -98,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-PM${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}
           path: |
             ./*PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}*.tar.gz
             install.log
@@ -113,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-workspace-PM${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-workspace-PM${{ inputs.pm-version-major }}
           path: |
             workspace.tar.gz
           if-no-files-found: error
