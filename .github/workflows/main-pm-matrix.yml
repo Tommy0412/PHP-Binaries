@@ -28,6 +28,7 @@ jobs:
   android:
     name: Android arm64
     runs-on: ubuntu-latest
+    if: ${{ inputs.php-version-base == '8.4' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -95,9 +96,23 @@ jobs:
             compile.sh
           if-no-files-found: error
 
+      - name: Prepare workspace for upload
+        if: failure()
+        run: tar -czf workspace.tar.gz install_data
+
+      - name: Upload workspace
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: PHP-${{ inputs.php-version-base }}-Android-workspace-PM${{ inputs.pm-version-major }}
+          path: |
+            workspace.tar.gz
+          if-no-files-found: error
+
   android-arm32:
     name: Android arm32
     runs-on: ubuntu-latest
+    if: ${{ inputs.php-version-base == '8.4' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -178,31 +193,11 @@ jobs:
             workspace.tar.gz
           if-no-files-found: error
 
-      - name: Prepare workspace for upload
-        if: failure()
-        run: tar -czf workspace.tar.gz install_data
-
-      - name: Upload workspace
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: PHP-${{ inputs.php-version-base }}-Android-workspace-PM${{ inputs.pm-version-major }}
-          path: |
-            workspace.tar.gz
-          if-no-files-found: error
-
-  
-
-  
-
-  
-
-
   publish:
     name: Publish binaries
     needs: [android, android-arm32]
     runs-on: ubuntu-latest
-    if: ${{ github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
+    if: ${{ inputs.php-version-base == '8.4' && github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
     concurrency: release-${{ inputs.php-version-base }}-pm${{ inputs.pm-version-major }}
 
     permissions:
