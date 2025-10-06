@@ -894,38 +894,45 @@ function build_libpng {
 	write_done
 }
 
-function build_libjpeg1 {
-	if [ "$DO_STATIC" == "yes" ]; then
-		local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
-	else
-		local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
-	fi
+function build_libjpeg {
+    if [ "$DO_STATIC" == "yes" ]; then
+        local CMAKE_EXTRA_FLAGS="-DWITH_SIMD=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DFORCE_INLINE=ON"
+    else
+        local CMAKE_EXTRA_FLAGS="-DWITH_SIMD=ON -DENABLE_SHARED=ON -DENABLE_STATIC=OFF"
+    fi
 
-	write_library libjpeg "$LIBJPEG_VERSION"
-	local libjpeg_dir="./libjpeg-$LIBJPEG_VERSION"
-	if cant_use_cache "$libjpeg_dir"; then
-		rm -rf "$libjpeg_dir"
-		write_download
-		download_from_mirror "jpegsrc.v$LIBJPEG_VERSION.tar.gz" "libjpeg" | tar -zx >> "$DIR/install.log" 2>&1
-		mv jpeg-$LIBJPEG_VERSION "$libjpeg_dir"
+    write_library libjpeg-turbo "3.0.3"
+    local libjpeg_dir="./libjpeg-turbo-3.0.3"
+    if cant_use_cache "$libjpeg_dir"; then
+        rm -rf "$libjpeg_dir"
+        write_download
+        download_file "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.0.3/libjpeg-turbo-3.0.3.tar.gz" "libjpeg-turbo" | tar -zx >> "$DIR/install.log" 2>&1
 
-		write_configure
-		cd "$libjpeg_dir"
-		LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
-		--prefix="$INSTALL_DIR" \
-		$EXTRA_FLAGS \
-		$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+        write_configure
+        cd "$libjpeg_dir"
+        cmake . \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+            -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            $CMAKE_GLOBAL_EXTRA_FLAGS \
+            -DWITH_JPEG7=OFF \
+            -DWITH_JPEG8=ON \
+            -DWITH_ARITH_ENC=ON \
+            -DWITH_ARITH_DEC=ON \
+            -DWITH_MEM_SRCDST=ON \
+            -DWITH_TURBOJPEG=OFF \
+            $CMAKE_EXTRA_FLAGS >> "$DIR/install.log" 2>&1
 
-		write_compile
-		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
-	else
-		write_caching
-		cd "$libjpeg_dir"
-	fi
-	write_install
-	make install >> "$DIR/install.log" 2>&1
-	cd ..
-	write_done
+        write_compile
+        make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
+    else
+        write_caching
+        cd "$libjpeg_dir"
+    fi
+    write_install
+    make install >> "$DIR/install.log" 2>&1
+    cd ..
+    write_done
 }
 
 function build_libjpeg {
