@@ -17,8 +17,8 @@ YAML_VERSION="0.2.5"
 LEVELDB_VERSION="1c7564468b41610da4f498430e795ca4de0931ff" #release not tagged
 LIBXML_VERSION="2.14.5"
 LIBPNG_VERSION="1.6.50"
-#LIBJPEG_VERSION="9f"
-LIBJPEG_VERSION="3.0.3"
+LIBJPEG_VERSION="9f"
+#LIBJPEG_VERSION="3.0.3"
 OPENSSL_VERSION="3.5.2"
 LIBZIP_VERSION="1.11.4"
 SQLITE3_VERSION="3500400" #3.50.4
@@ -896,32 +896,28 @@ function build_libpng {
 
 function build_libjpeg {
     if [ "$DO_STATIC" == "yes" ]; then
-        local CMAKE_EXTRA_FLAGS="-DWITH_SIMD=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DFORCE_INLINE=ON"
+        local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
     else
-        local CMAKE_EXTRA_FLAGS="-DWITH_SIMD=ON -DENABLE_SHARED=ON -DENABLE_STATIC=OFF"
+        local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
     fi
 
-    write_library libjpeg-turbo "3.0.3"
-    local libjpeg_dir="./libjpeg-turbo-3.0.3"
+    write_library libjpeg "$LIBJPEG_VERSION"
+    local libjpeg_dir="./libjpeg-$LIBJPEG_VERSION"
     if cant_use_cache "$libjpeg_dir"; then
         rm -rf "$libjpeg_dir"
         write_download
-        download_file "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.0.3/libjpeg-turbo-3.0.3.tar.gz" "libjpeg-turbo" | tar -zx >> "$DIR/install.log" 2>&1
+        download_from_mirror "jpegsrc.v$LIBJPEG_VERSION.tar.gz" "libjpeg" | tar -zx >> "$DIR/install.log" 2>&1
+        mv jpeg-$LIBJPEG_VERSION "$libjpeg_dir"
 
         write_configure
         cd "$libjpeg_dir"
-        cmake . \
-            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-            -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
-            -DCMAKE_INSTALL_LIBDIR=lib \
-            $CMAKE_GLOBAL_EXTRA_FLAGS \
-            -DWITH_JPEG7=OFF \
-            -DWITH_JPEG8=ON \
-            -DWITH_ARITH_ENC=ON \
-            -DWITH_ARITH_DEC=ON \
-            -DWITH_MEM_SRCDST=ON \
-            -DWITH_TURBOJPEG=OFF \
-            $CMAKE_EXTRA_FLAGS >> "$DIR/install.log" 2>&1
+        LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
+        --prefix="$INSTALL_DIR" \
+        --disable-shared \
+        --enable-static \
+        $CONFIGURE_FLAGS \
+        --without-simtools \
+        ac_cv_lib_jpeg_jpeg_create_compress=no >> "$DIR/install.log" 2>&1
 
         write_compile
         make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
