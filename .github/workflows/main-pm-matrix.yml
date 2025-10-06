@@ -154,10 +154,18 @@ jobs:
           make install
           mv ./output "${{ github.workspace }}/compiler"
 
+      - name: Verify toolchain
+  run: |
+    export PATH="${{ github.workspace }}/compiler/bin:$PATH"
+    which arm-linux-musleabihf-gcc
+    arm-linux-musleabihf-gcc --version
+    arm-linux-musleabihf-ld --version
+    arm-linux-musleabi-gcc --version || echo "arm-linux-musleabi-gcc not found"
+
       - name: Compile PHP
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-
+          rm -rf ./download_cache
           # Used "set -ex" instead of hashbang since script isn't executed with hashbang
           set -ex
           trap "exit 1" ERR
