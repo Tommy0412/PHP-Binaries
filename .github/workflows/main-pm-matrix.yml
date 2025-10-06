@@ -107,7 +107,12 @@ jobs:
 
       - name: Prepare workspace for upload
         if: failure()
-        run: tar -czf workspace.tar.gz install_data
+        run: |
+          if [ -e install_data ]; then
+            tar -czf workspace.tar.gz install_data
+          else
+            tar -czf workspace.tar.gz .
+          fi
 
       - name: Upload workspace
         uses: actions/upload-artifact@v4
