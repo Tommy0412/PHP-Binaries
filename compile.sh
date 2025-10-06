@@ -17,7 +17,8 @@ YAML_VERSION="0.2.5"
 LEVELDB_VERSION="1c7564468b41610da4f498430e795ca4de0931ff" #release not tagged
 LIBXML_VERSION="2.14.5"
 LIBPNG_VERSION="1.6.50"
-LIBJPEG_VERSION="9f"
+#LIBJPEG_VERSION="9f"
+LIBJPEG_VERSION="3.0.3"
 OPENSSL_VERSION="3.5.2"
 LIBZIP_VERSION="1.11.4"
 SQLITE3_VERSION="3500400" #3.50.4
@@ -87,7 +88,7 @@ function mark_cache {
 	touch "./.compile.sh.cache"
 }
 
-write_out "PocketMine" "PHP compiler for Linux, MacOS and Android"
+write_out "PHP compiler for Android"
 DIR="$(pwd)"
 BASE_BUILD_DIR="$DIR/install_data"
 #libtool and autoconf have a "feature" where it looks for install.sh/install-sh in ./ ../ and ../../
@@ -893,7 +894,7 @@ function build_libpng {
 	write_done
 }
 
-function build_libjpeg {
+function build_libjpeg1 {
 	if [ "$DO_STATIC" == "yes" ]; then
 		local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
 	else
@@ -927,6 +928,38 @@ function build_libjpeg {
 	write_done
 }
 
+function build_libjpeg {
+    if [ "$DO_STATIC" == "yes" ]; then
+        local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
+    else
+        local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
+    fi
+
+    write_library libjpeg-turbo "3.0.3"
+    local libjpeg_dir="./libjpeg-turbo-3.0.3"
+    if cant_use_cache "$libjpeg_dir"; then
+        rm -rf "$libjpeg_dir"
+        write_download
+        download_file "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.0.3/libjpeg-turbo-3.0.3.tar.gz" "libjpeg-turbo" | tar -zx >> "$DIR/install.log" 2>&1
+
+        write_configure
+        cd "$libjpeg_dir"
+        LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
+        --prefix="$INSTALL_DIR" \
+        $EXTRA_FLAGS \
+        $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+
+        write_compile
+        make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
+    else
+        write_caching
+        cd "$libjpeg_dir"
+    fi
+    write_install
+    make install >> "$DIR/install.log" 2>&1
+    cd ..
+    write_done
+}
 
 function build_libxml2 {
 	write_library libxml2 "$LIBXML_VERSION"
