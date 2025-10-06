@@ -7,10 +7,6 @@ on:
         description: 'PocketMine-MP major version'
         required: true
         type: number
-      php-version-base:
-        description: 'PHP base version'
-        required: true
-        type: string
       special-release:
         description: 'Special release type to create (pm-default-latest, pm-default, none)'
         required: true
@@ -34,10 +30,6 @@ jobs:
             mc_target: aarch64-linux-musl
             compile_target: android-aarch64
             artifact_suffix: arm64
-          - arch: arm32
-            mc_target: arm-linux-musleabihf
-            compile_target: android-arm
-            artifact_suffix: arm32
 
     steps:
       - uses: actions/checkout@v5
@@ -86,21 +78,21 @@ jobs:
           # Used "set -ex" instead of hashbang since script isn't executed with hashbang
           set -ex
           trap "exit 1" ERR
-          ./compile.sh -t ${{ matrix.compile_target }} -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }}
+          ./compile.sh -t ${{ matrix.compile_target }} -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z 8.3
         
       
       - name: Create tarball
         run: |
-          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}.tar.gz bin
-          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          tar -czf ./PHP-8.3-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}.tar.gz bin
+          tar -czf ./Z-PHP-8.3-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}
+          name: PHP-8.3-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}
           path: |
-            ./*PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}*.tar.gz
+            ./*PHP-8.3-Android-${{ matrix.artifact_suffix }}-PM${{ inputs.pm-version-major }}*.tar.gz
             install.log
             compile.sh
           if-no-files-found: error
@@ -118,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-${{ matrix.artifact_suffix }}-workspace-PM${{ inputs.pm-version-major }}
+          name: PHP-8.3-Android-${{ matrix.artifact_suffix }}-workspace-PM${{ inputs.pm-version-major }}
           path: |
             workspace.tar.gz
           if-no-files-found: error
@@ -128,7 +120,7 @@ jobs:
     needs: [android]
     runs-on: ubuntu-latest
     if: ${{ github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
-    concurrency: release-${{ inputs.php-version-base }}-pm${{ inputs.pm-version-major }}
+    concurrency: release-8.3-pm${{ inputs.pm-version-major }}
 
     permissions:
       contents: write
@@ -138,8 +130,8 @@ jobs:
 
       - name: Update latest tag target
         run: |
-          git tag -f pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
+          git tag -f pm${{ inputs.pm-version-major }}-php-8.3-latest
+          git push -f origin pm${{ inputs.pm-version-major }}-php-8.3-latest
           git tag -f pm${{ inputs.pm-version-major }}-latest
           git push -f origin pm${{ inputs.pm-version-major }}-latest
 
@@ -147,22 +139,22 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ${{ github.workspace }}
-          pattern: "*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}"
+          pattern: "*PHP-8.3-*-PM${{ inputs.pm-version-major }}"
 
       - name: Download .gdbinit for this PHP version
         run: |
-          curl -L https://raw.githubusercontent.com/php/php-src/refs/heads/PHP-${{ inputs.php-version-base }}/.gdbinit -o Z-PHP-${{ inputs.php-version-base }}.gdbinit
+          curl -L https://raw.githubusercontent.com/php/php-src/refs/heads/PHP-8.3/.gdbinit -o Z-PHP-8.3.gdbinit
 
       - name: Upload .gdbinit artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PHP-${{ inputs.php-version-base }}.gdbinit
+          name: PHP-8.3.gdbinit
           path: |
             ${{ github.workspace }}/*.gdbinit
 
       - name: Generate release notes
         run: |
-          echo "### PHP ${{ inputs.php-version-base }} for PocketMine-MP ${{ inputs.pm-version-major }}.x" > changelog.md
+          echo "### PHP 8.3 for PocketMine-MP ${{ inputs.pm-version-major }}.x" > changelog.md
           echo "Last updated on **$(date -u +'%d %b %Y at %H:%M:%S %Z')**" >> changelog.md
           echo -e "\n\n" >> changelog.md
           echo "Built by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
@@ -209,11 +201,12 @@ jobs:
             ${{ github.workspace }}/*PHP-*-PM*/*.tar.gz
             ${{ github.workspace }}/*PHP-*-Windows-PM*/*.zip
             ${{ github.workspace }}/*.gdbinit
-          name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - PHP ${{ inputs.php-version-base }}
-          tag: pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
+          name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - PHP 8.3
+          tag: pm${{ inputs.pm-version-major }}-php-8.3-latest
           commit: ${{ github.sha }}
           allowUpdates: true
           removeArtifacts: true
           bodyFile: ${{ github.workspace }}/changelog.md
           makeLatest: false
           prerelease: ${{ inputs.pm-preview == true }}
+
