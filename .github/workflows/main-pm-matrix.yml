@@ -1,3 +1,4 @@
+
 name: Build PHP binaries
 
 on:
@@ -27,7 +28,7 @@ jobs:
   android:
     name: Android arm64
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2' }}
+    if: ${{ inputs.php-version-base == '8.4' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -36,11 +37,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
-
-      - name: Clean disk
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
-          df -h
 
       - name: Prepare compile.sh download cache
         id: download-cache
@@ -70,35 +66,21 @@ jobs:
         working-directory: musl-cross-make
         run: |
           echo "TARGET = aarch64-linux-musl" > config.mak
-          time make -j$(nproc)
-          time make install
+          make -j$(nproc)
+          make install
           mv ./output "${{ github.workspace }}/compiler"
-
-      - name: Verify toolchain
-        run: |
-          export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-          aarch64-linux-musl-gcc --version
-          aarch64-linux-musl-gcc -dumpmachine
-          aarch64-linux-musl-gcc -march=armv8-a -dM -E - < /dev/null | grep -i "armv8"
-          echo 'int main(){return 0;}' > test.c
-          aarch64-linux-musl-gcc -static test.c -o test
-          file test
-          rm test.c test
-
-      - name: Check disk space
-        run: |
-          df -h
-          du -sh /home/runner/work/PHP-Binaries/PHP-Binaries/install_data
 
       - name: Compile PHP
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-          export CFLAGS="-march=armv8-a -O2"
-          export CXXFLAGS="-march=armv8-a -O2"
-          export LDFLAGS="-static -L${{ github.workspace }}/bin/php7/lib"
           set -ex
           trap "exit 1" ERR
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Create tarball
+        run: |
+          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
+          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
 
       - name: Upload build log
         if: always()
@@ -124,11 +106,6 @@ jobs:
           path: tar_contents.log
           if-no-files-found: warn
 
-      - name: Create tarball
-        run: |
-          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
-          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
-
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -152,7 +129,7 @@ jobs:
   android-arm32:
     name: Android arm32
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2' }}
+    if: ${{ inputs.php-version-base == '8.4' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -161,11 +138,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
-
-      - name: Clean disk
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
-          df -h
 
       - name: Prepare compile.sh download cache
         id: download-cache
@@ -195,36 +167,22 @@ jobs:
         working-directory: musl-cross-make
         run: |
           echo "TARGET = arm-linux-musleabihf" > config.mak
-          time make -j$(nproc)
-          time make install
+          make -j$(nproc)
+          make install
           mv ./output "${{ github.workspace }}/compiler"
-
-      - name: Verify toolchain
-        run: |
-          export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-          arm-linux-musleabihf-gcc --version
-          arm-linux-musleabihf-gcc -dumpmachine
-          arm-linux-musleabihf-gcc -march=armv7-a -mfpu=neon -dM -E - < /dev/null | grep -i "neon\|armv7"
-          echo 'int main(){return 0;}' > test.c
-          arm-linux-musleabihf-gcc -static test.c -o test
-          file test
-          rm test.c test
-
-      - name: Check disk space
-        run: |
-          df -h
-          du -sh /home/runner/work/PHP-Binaries/PHP-Binaries/install_data
 
       - name: Compile PHP
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
           rm -rf ./download_cache
-          export CFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -O2"
-          export CXXFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -O2"
-          export LDFLAGS="-static -L${{ github.workspace }}/bin/php7/lib"
           set -ex
           trap "exit 1" ERR
           ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Create tarball
+        run: |
+          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
 
       - name: Upload build log
         if: always()
@@ -250,11 +208,6 @@ jobs:
           path: tar_contents.log
           if-no-files-found: warn
 
-      - name: Create tarball
-        run: |
-          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
-          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
-
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -279,91 +232,5 @@ jobs:
     name: Publish binaries
     needs: [android, android-arm32]
     runs-on: ubuntu-latest
-    if: ${{ (inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2') && github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
-    concurrency: release-${{ inputs.php-version-base }}-pm${{ inputs.pm-version-major }}
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Update latest tag target
-        run: |
-          git tag -f pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git tag -f pm${{ inputs.pm-version-major }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-latest
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: ${{ github.workspace }}
-          pattern: "*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}"
-
-      - name: Download .gdbinit for this PHP version
-        run: |
-          curl -L https://raw.githubusercontent.com/php/php-src/refs/heads/PHP-${{ inputs.php-version-base }}/.gdbinit -o Z-PHP-${{ inputs.php-version-base }}.gdbinit
-
-      - name: Upload .gdbinit artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PHP-${{ inputs.php-version-base }}.gdbinit
-          path: |
-            ${{ github.workspace }}/*.gdbinit
-          if-no-files-found: warn
-
-      - name: Generate release notes
-        run: |
-          echo "### PHP ${{ inputs.php-version-base }} for PocketMine-MP ${{ inputs.pm-version-major }}.x" > changelog.md
-          echo "Last updated on **$(date -u +'%d %b %Y at %H:%M:%S %Z')**" >> changelog.md
-          echo -e "\n\n" >> changelog.md
-          echo "Built by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
-          echo "Build number: ${{ github.run_number }}" >> changelog.md
-          echo -e "\n\n\n" >> changelog.md
-          echo ":information_source: **Linux/MacOS users**: Please see [this page](https://doc.pmmp.io/en/rtfd/faq/installation/opcache.so.html) to fix extension loading errors. Also, check out the [PocketMine-MP Linux/MacOS installer](https://doc.pmmp.io/en/rtfd/installation/get-dot-pmmp-dot-io.html)." >> changelog.md
-          echo ":warning: **Windows users**: Don't forget to install [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) or the binary will not work!" >> changelog.md
-          echo -e "\n\n\n" >> changelog.md
-          if [[ "${{ inputs.special-release }}" != "none" ]]; then
-            echo ":white_check_mark: At the time of publication, this version is recommended for PocketMine-MP ${{ inputs.pm-version-major }}.x production servers." >> changelog.md
-          else
-            echo ":warning: WARNING! :warning:" >> changelog.md
-            echo "At the time of publication, plugins for PocketMine-MP ${{ inputs.pm-version-major }}.x may not work this PHP version." >> changelog.md
-            echo "If you have problems, try the [recommended PM${{ inputs.pm-version-major }} release](${{ github.server_url }}/${{ github.repository }}/releases/pm${{ inputs.pm-version-major }}-latest) instead." >> changelog.md
-          fi
-
-      - name: Get date
-        id: date
-        run: |
-          echo DATE=$(date -u +'%d %b %Y') >> $GITHUB_OUTPUT
-
-      - name: Update recommended PM release
-        uses: ncipollo/release-action@v1.20.0
-        if: ${{ inputs.special-release != 'none' }}
-        with:
-          artifacts: |
-            ${{ github.workspace }}/*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}*/*.tar.gz
-            ${{ github.workspace }}/*.gdbinit
-          name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - Recommended
-          tag: pm${{ inputs.pm-version-major }}-latest
-          commit: ${{ github.sha }}
-          allowUpdates: true
-          removeArtifacts: true
-          bodyFile: ${{ github.workspace }}/changelog.md
-          makeLatest: ${{ inputs.special-release == 'default-latest' }}
-          prerelease: ${{ inputs.pm-preview == true }}
-
-      - name: Update php-version PM release
-        uses: ncipollo/release-action@v1.20.0
-        with:
-          artifacts: |
-            ${{ github.workspace }}/*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}*/*.tar.gz
-            ${{ github.workspace }}/*.gdbinit
-          name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - PHP ${{ inputs.php-version-base }}
-          tag: pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          commit: ${{ github.sha }}
-          allowUpdates: true
-          removeArtifacts: true
-          bodyFile: ${{ github.workspace }}/changelog.md
-          makeLatest: false
-          prerelease: ${{ inputs.pm-preview == true }}
+    if: ${{ inputs.php-version-base == '8.4' && github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
+    concurrency: release-${{ inputs.php-version-base }}-pm
