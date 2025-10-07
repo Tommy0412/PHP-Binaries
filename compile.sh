@@ -1087,7 +1087,6 @@ build_gmp
 build_openssl
 build_curl
 build_yaml
-build_leveldb
 if [ "$COMPILE_GD" == "yes" ]; then
 	build_libpng
 	build_libjpeg
@@ -1101,7 +1100,6 @@ fi
 build_libxml2
 build_libzip
 build_sqlite3
-build_libdeflate
 
 # PECL libraries
 
@@ -1139,7 +1137,7 @@ get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
 
 get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-write_library "PHP" "$PHP_VERSION"
+write_library "PHP" "$PHP_VERSION"HAVE_VALGRIND
 
 write_configure
 cd php
