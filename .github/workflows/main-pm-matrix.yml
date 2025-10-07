@@ -189,7 +189,15 @@ jobs:
           rm -rf ./download_cache
           set -ex
           trap "exit 1" ERR
-          ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+          TARGET="android-armv7"
+          echo "Building for target: $TARGET"
+
+          ./compile.sh -t $TARGET -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+    echo "Building for target: $TARGET"
+
+    ./compile.sh -t $TARGET -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
       - name: Create tarball
         if: success()
@@ -271,27 +279,13 @@ jobs:
           path: ${{ github.workspace }}
           pattern: "*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}"
 
-      - name: Download .gdbinit for this PHP version
-        run: |
-          curl -L https://raw.githubusercontent.com/php/php-src/refs/heads/PHP-${{ inputs.php-version-base }}/.gdbinit -o Z-PHP-${{ inputs.php-version-base }}.gdbinit
-
-      - name: Upload .gdbinit artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PHP-${{ inputs.php-version-base }}.gdbinit
-          path: |
-            ${{ github.workspace }}/*.gdbinit
-
       - name: Generate release notes
         run: |
-          echo "### PHP ${{ inputs.php-version-base }} for PocketMine-MP ${{ inputs.pm-version-major }}.x" > changelog.md
+          echo "### PHP ${{ inputs.php-version-base }} for Android ${{ inputs.pm-version-major }}.x" > changelog.md
           echo "Last updated on **$(date -u +'%d %b %Y at %H:%M:%S %Z')**" >> changelog.md
           echo -e "\n\n" >> changelog.md
           echo "Built by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
           echo "Build number: ${{ github.run_number }}" >> changelog.md
-          echo -e "\n\n\n" >> changelog.md
-          echo ":information_source: **Linux/MacOS users**: Please see [this page](https://doc.pmmp.io/en/rtfd/faq/installation/opcache.so.html) to fix extension loading errors. Also, check out the [PocketMine-MP Linux/MacOS installer](https://doc.pmmp.io/en/rtfd/installation/get-dot-pmmp-dot-io.html)." >> changelog.md
-          echo ":warning: **Windows users**: Don't forget to install [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) or the binary will not work!" >> changelog.md
           echo -e "\n\n\n" >> changelog.md
 
           if [[ "${{ inputs.special-release }}" != "none" ]]; then
