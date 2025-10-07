@@ -1134,35 +1134,10 @@ function get_pecl_extension {
 cd "$BUILD_DIR/php"
 write_out "PHP" "Downloading additional extensions..."
 
-get_github_extension "pmmpthread" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
-
-
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
 #get_pecl_extension "yaml" "$EXT_YAML_VERSION"
 
 get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
-
-get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
-
-echo -n "  crypto: downloading $EXT_CRYPTO_VERSION..."
-git clone https://github.com/bukka/php-crypto.git "$BUILD_DIR/php/ext/crypto" >> "$DIR/install.log" 2>&1
-cd "$BUILD_DIR/php/ext/crypto"
-git checkout "$EXT_CRYPTO_VERSION" >> "$DIR/install.log" 2>&1
-git submodule update --init --recursive >> "$DIR/install.log" 2>&1
-cd "$BUILD_DIR"
-write_done
-
-get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
-
-get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
-
-get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
-
-get_github_extension "morton" "$EXT_MORTON_VERSION" "pmmp" "ext-morton"
-
-get_github_extension "xxhash" "$EXT_XXHASH_VERSION" "pmmp" "ext-xxhash"
-
-get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydebug"
 
 write_library "PHP" "$PHP_VERSION"
 
@@ -1252,18 +1227,13 @@ RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLA
 --with-yaml \
 --with-openssl \
 --with-zip \
---with-libdeflate \
 $HAS_LIBJPEG \
 $HAS_GD \
---with-leveldb="$INSTALL_DIR" \
 --without-readline \
 $HAS_DEBUG \
---enable-chunkutils2 \
---enable-morton \
 --enable-mbstring \
 --disable-mbregex \
 --enable-calendar \
---enable-pmmpthread \
 --enable-fileinfo \
 --with-libxml \
 --enable-xml \
@@ -1294,10 +1264,6 @@ $HAVE_MYSQLI \
 --enable-opcache=$HAVE_OPCACHE \
 --enable-opcache-jit=$HAVE_OPCACHE_JIT \
 --enable-igbinary \
---with-crypto \
---enable-recursionguard \
---enable-xxhash \
---enable-arraydebug \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 write_compile
