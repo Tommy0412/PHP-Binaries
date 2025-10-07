@@ -1132,63 +1132,40 @@ function get_pecl_extension {
 cd "$BUILD_DIR/php"
 write_out "PHP" "Downloading additional extensions..."
 
+get_github_extension "pmmpthread" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
+
+
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
 #get_pecl_extension "yaml" "$EXT_YAML_VERSION"
 
 get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-write_library "PHP" "$PHP_VERSION"
-# Insert after line 1137
-write_out "PHP" "Cleaning previous PHP source..."
-rm -rf "$BUILD_DIR/php" "$BUILD_DIR/php-$PHP_VERSION" >> "$DIR/install.log" 2>&1
-write_out "PHP" "Checking disk space..."
-df -h "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-write_out "PHP" "Downloading PHP $PHP_VERSION from https://www.php.net/distributions/php-$PHP_VERSION.tar.gz..."
-# Download to a temporary file first
-download_file "https://www.php.net/distributions/php-$PHP_VERSION.tar.gz" "php" > "$BUILD_DIR/php-$PHP_VERSION.tar.gz" 2>> "$DIR/install.log"
-if [ $? -ne 0 ]; then
-    write_error "Failed to download php-$PHP_VERSION.tar.gz!"
-    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-    exit 1
-fi
-write_out "PHP" "Verifying downloaded tarball..."
-ls -la "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
-if [ ! -s "$BUILD_DIR/php-$PHP_VERSION.tar.gz" ]; then
-    write_error "Downloaded php-$PHP_VERSION.tar.gz is empty or missing!"
-    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-    exit 1
-fi
-write_out "PHP" "Extracting php-$PHP_VERSION.tar.gz..."
-tar -zxf "$BUILD_DIR/php-$PHP_VERSION.tar.gz" -C "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-if [ $? -ne 0 ]; then
-    write_error "Failed to extract php-$PHP_VERSION.tar.gz!"
-    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-    tar -tvf "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
-    exit 1
-fi
-write_out "PHP" "Checking extracted directory..."
-ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-if [ -d "$BUILD_DIR/php-$PHP_VERSION" ]; then
-    write_out "PHP" "Renaming php-$PHP_VERSION to php..."
-    mv "$BUILD_DIR/php-$PHP_VERSION" "$BUILD_DIR/php" >> "$DIR/install.log" 2>&1
-    if [ $? -ne 0 ]; then
-        write_error "Failed to rename php-$PHP_VERSION to php!"
-        ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-        exit 1
-    fi
-else
-    write_error "Extracted directory php-$PHP_VERSION not found!"
-    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-    exit 1
-fi
-write_out "PHP" "Verifying PHP source directory..."
-ls -la "$BUILD_DIR/php" >> "$DIR/install.log" 2>&1
-if [ ! -d "$BUILD_DIR/php" ]; then
-    write_error "PHP source directory 'php' not found!"
-    exit 1
-fi
-# Clean up tarball
-rm -f "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
+get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
+
+echo -n "  crypto: downloading $EXT_CRYPTO_VERSION..."
+git clone https://github.com/bukka/php-crypto.git "$BUILD_DIR/php/ext/crypto" >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR/php/ext/crypto"
+git checkout "$EXT_CRYPTO_VERSION" >> "$DIR/install.log" 2>&1
+git submodule update --init --recursive >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR"
+write_done
+
+get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
+
+get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
+
+get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
+
+get_github_extension "morton" "$EXT_MORTON_VERSION" "pmmp" "ext-morton"
+
+get_github_extension "xxhash" "$EXT_XXHASH_VERSION" "pmmp" "ext-xxhash"
+
+get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydebug"
+
+get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
+
+write_library "PHP" "$PHP_VERSION"HAVE_VALGRIND 
+
 write_configure
 cd php
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
@@ -1269,7 +1246,6 @@ fi
 RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$INSTALL_DIR" \
 --exec-prefix="$INSTALL_DIR" \
 --with-curl \
---with-zlib \
 --with-zlib \
 --with-gmp \
 --with-yaml \
