@@ -190,10 +190,7 @@ jobs:
           set -ex
           trap "exit 1" ERR
 
-          TARGET="android-armv7"
-          echo "Building for target: $TARGET"
-
-          ./compile.sh -t $TARGET -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+          ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
      
       - name: Create tarball
         if: success()
