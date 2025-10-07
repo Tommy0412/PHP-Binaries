@@ -194,26 +194,33 @@ jobs:
           echo "Building for target: $TARGET"
 
           ./compile.sh -t $TARGET -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+     
+      - name: Create tarball
+        if: success()
+        run: |
+          # Safe tarball creation for ARM32
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mkdir -p bin-arm32
+            mv bin/php7/* bin-arm32/
+            rm -rf bin/php7
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin-arm32
+          elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+          else
+            echo "Error: bin or bin/php7 directory missing or empty"
+            ls -la bin || true
+            ls -la bin/php7 || true
+            exit 1
+          fi
 
-- name: Create tarball (arm32)
-  run: |
-    set -e
-    TARGET_DIR=""
-    if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-      TARGET_DIR="bin-arm32"
-      mkdir -p "$TARGET_DIR"
-      mv bin/php7/* "$TARGET_DIR"/ || true
-      rm -rf bin/php7
-    elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
-      TARGET_DIR="bin-arm32"
-      mv bin/* "$TARGET_DIR"/ || true
-    fi
-
-    if [ -n "$TARGET_DIR" ]; then
-      tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz "$TARGET_DIR"
-    else
-      echo "⚠️ Warning: No binaries found for ARM32 tarball, skipping."
-    fi
+          # Tar debug symbols
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la bin-debug || true
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()
