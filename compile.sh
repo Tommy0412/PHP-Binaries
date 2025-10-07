@@ -1141,11 +1141,29 @@ write_library "PHP" "$PHP_VERSION"
 # Insert after line 1137
 write_out "PHP" "Cleaning previous PHP source..."
 rm -rf "$BUILD_DIR/php" "$BUILD_DIR/php-$PHP_VERSION" >> "$DIR/install.log" 2>&1
+write_out "PHP" "Checking disk space..."
+df -h "$BUILD_DIR" >> "$DIR/install.log" 2>&1
 write_out "PHP" "Downloading PHP $PHP_VERSION from https://www.php.net/distributions/php-$PHP_VERSION.tar.gz..."
-download_file "https://www.php.net/distributions/php-$PHP_VERSION.tar.gz" "php" | tar -zx -C "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+# Download to a temporary file first
+download_file "https://www.php.net/distributions/php-$PHP_VERSION.tar.gz" "php" > "$BUILD_DIR/php-$PHP_VERSION.tar.gz" 2>> "$DIR/install.log"
 if [ $? -ne 0 ]; then
-    write_error "Failed to download or extract php-$PHP_VERSION.tar.gz!"
+    write_error "Failed to download php-$PHP_VERSION.tar.gz!"
     ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+    exit 1
+fi
+write_out "PHP" "Verifying downloaded tarball..."
+ls -la "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
+if [ ! -s "$BUILD_DIR/php-$PHP_VERSION.tar.gz" ]; then
+    write_error "Downloaded php-$PHP_VERSION.tar.gz is empty or missing!"
+    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+    exit 1
+fi
+write_out "PHP" "Extracting php-$PHP_VERSION.tar.gz..."
+tar -zxf "$BUILD_DIR/php-$PHP_VERSION.tar.gz" -C "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+if [ $? -ne 0 ]; then
+    write_error "Failed to extract php-$PHP_VERSION.tar.gz!"
+    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+    tar -tvf "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
     exit 1
 fi
 write_out "PHP" "Checking extracted directory..."
@@ -1169,6 +1187,8 @@ if [ ! -d "$BUILD_DIR/php" ]; then
     write_error "PHP source directory 'php' not found!"
     exit 1
 fi
+# Clean up tarball
+rm -f "$BUILD_DIR/php-$PHP_VERSION.tar.gz" >> "$DIR/install.log" 2>&1
 write_configure
 cd php
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
