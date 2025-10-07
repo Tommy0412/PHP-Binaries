@@ -112,7 +112,7 @@ jobs:
   android-arm32:
     name: Android arm32
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.2' }}
+    if: ${{ inputs.php-version-base == '8.4' }}
 
     steps:
       - uses: actions/checkout@v5
