@@ -161,7 +161,7 @@ jobs:
           # Used "set -ex" instead of hashbang since script isn't executed with hashbang
           set -ex
           trap "exit 1" ERR
-          ./compile.sh -t android-arm -x -j 4 -P 5 -c ./download_cache -D -z 8.2
+          ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }}
         
       
       - name: Create tarball
