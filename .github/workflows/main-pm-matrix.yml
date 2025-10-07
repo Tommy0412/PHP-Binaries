@@ -1,4 +1,3 @@
-
 name: Build PHP binaries
 
 on:
@@ -28,7 +27,7 @@ jobs:
   android:
     name: Android arm64
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' }}
+    if: ${{ inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -37,6 +36,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
+
+      - name: Clean disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
+          df -h
 
       - name: Prepare compile.sh download cache
         id: download-cache
@@ -66,53 +70,89 @@ jobs:
         working-directory: musl-cross-make
         run: |
           echo "TARGET = aarch64-linux-musl" > config.mak
-          make -j$(nproc)
-          make install
+          time make -j$(nproc)
+          time make install
           mv ./output "${{ github.workspace }}/compiler"
+
+      - name: Verify toolchain
+        run: |
+          export PATH="${{ github.workspace }}/compiler/bin:$PATH"
+          aarch64-linux-musl-gcc --version
+          aarch64-linux-musl-gcc -dumpmachine
+          aarch64-linux-musl-gcc -march=armv8-a -dM -E - < /dev/null | grep -i "armv8"
+          echo 'int main(){return 0;}' > test.c
+          aarch64-linux-musl-gcc -static test.c -o test
+          file test
+          rm test.c test
+
+      - name: Check disk space
+        run: |
+          df -h
+          du -sh /home/runner/work/PHP-Binaries/PHP-Binaries/install_data
 
       - name: Compile PHP
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-
-          # Used "set -ex" instead of hashbang since script isn't executed with hashbang
+          export CFLAGS="-march=armv8-a -O2"
+          export CXXFLAGS="-march=armv8-a -O2"
+          export LDFLAGS="-static -L${{ github.workspace }}/bin/php7/lib"
           set -ex
           trap "exit 1" ERR
-          ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }}
-        
-      
+          ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-arm64
+          path: build.log
+          if-no-files-found: warn
+
+      - name: Upload install log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log-arm64
+          path: install.log
+          if-no-files-found: warn
+
+      - name: Upload tar contents log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tar-contents-log-arm64
+          path: tar_contents.log
+          if-no-files-found: warn
+
       - name: Create tarball
         run: |
           tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
           tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-PM${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}
           path: |
             ./*PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}*.tar.gz
             install.log
+            tar_contents.log
             compile.sh
-          if-no-files-found: error
+          if-no-files-found: warn
 
-      - name: Prepare workspace for upload
+      - name: Upload workspace on failure
         if: failure()
-        run: tar -czf workspace.tar.gz install_data
-
-      - name: Upload workspace
         uses: actions/upload-artifact@v4
-        if: failure()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-workspace-PM${{ inputs.pm-version-major }}
-          path: |
-            workspace.tar.gz
-          if-no-files-found: error
+          name: workspace-arm64
+          path: .
+          if-no-files-found: warn
 
   android-arm32:
     name: Android arm32
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' }}
+    if: ${{ inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -121,6 +161,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
+
+      - name: Clean disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
+          df -h
 
       - name: Prepare compile.sh download cache
         id: download-cache
@@ -150,54 +195,91 @@ jobs:
         working-directory: musl-cross-make
         run: |
           echo "TARGET = arm-linux-musleabihf" > config.mak
-          make -j$(nproc)
-          make install
+          time make -j$(nproc)
+          time make install
           mv ./output "${{ github.workspace }}/compiler"
+
+      - name: Verify toolchain
+        run: |
+          export PATH="${{ github.workspace }}/compiler/bin:$PATH"
+          arm-linux-musleabihf-gcc --version
+          arm-linux-musleabihf-gcc -dumpmachine
+          arm-linux-musleabihf-gcc -march=armv7-a -mfpu=neon -dM -E - < /dev/null | grep -i "neon\|armv7"
+          echo 'int main(){return 0;}' > test.c
+          arm-linux-musleabihf-gcc -static test.c -o test
+          file test
+          rm test.c test
+
+      - name: Check disk space
+        run: |
+          df -h
+          du -sh /home/runner/work/PHP-Binaries/PHP-Binaries/install_data
 
       - name: Compile PHP
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
           rm -rf ./download_cache
-          # Used "set -ex" instead of hashbang since script isn't executed with hashbang
+          export CFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -O2"
+          export CXXFLAGS="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -O2"
+          export LDFLAGS="-static -L${{ github.workspace }}/bin/php7/lib"
           set -ex
           trap "exit 1" ERR
-          ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }}
-        
-      
+          ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-arm32
+          path: build.log
+          if-no-files-found: warn
+
+      - name: Upload install log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log-arm32
+          path: install.log
+          if-no-files-found: warn
+
+      - name: Upload tar contents log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tar-contents-log-arm32
+          path: tar_contents.log
+          if-no-files-found: warn
+
       - name: Create tarball
         run: |
           tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
           tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-PM${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}
           path: |
             ./*PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}*.tar.gz
             install.log
+            tar_contents.log
             compile.sh
-          if-no-files-found: error
+          if-no-files-found: warn
 
-      - name: Prepare workspace for upload
+      - name: Upload workspace on failure
         if: failure()
-        run: tar -czf workspace.tar.gz install_data
-
-      - name: Upload workspace
         uses: actions/upload-artifact@v4
-        if: failure()
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-workspace-PM${{ inputs.pm-version-major }}
-          path: |
-            workspace.tar.gz
-          if-no-files-found: error
+          name: workspace-arm32
+          path: .
+          if-no-files-found: warn
 
   publish:
     name: Publish binaries
     needs: [android, android-arm32]
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' && github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
+    if: ${{ (inputs.php-version-base == '8.4' || inputs.php-version-base == '8.2') && github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
     concurrency: release-${{ inputs.php-version-base }}-pm${{ inputs.pm-version-major }}
 
     permissions:
@@ -229,6 +311,7 @@ jobs:
           name: PHP-${{ inputs.php-version-base }}.gdbinit
           path: |
             ${{ github.workspace }}/*.gdbinit
+          if-no-files-found: warn
 
       - name: Generate release notes
         run: |
@@ -241,7 +324,6 @@ jobs:
           echo ":information_source: **Linux/MacOS users**: Please see [this page](https://doc.pmmp.io/en/rtfd/faq/installation/opcache.so.html) to fix extension loading errors. Also, check out the [PocketMine-MP Linux/MacOS installer](https://doc.pmmp.io/en/rtfd/installation/get-dot-pmmp-dot-io.html)." >> changelog.md
           echo ":warning: **Windows users**: Don't forget to install [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) or the binary will not work!" >> changelog.md
           echo -e "\n\n\n" >> changelog.md
-
           if [[ "${{ inputs.special-release }}" != "none" ]]; then
             echo ":white_check_mark: At the time of publication, this version is recommended for PocketMine-MP ${{ inputs.pm-version-major }}.x production servers." >> changelog.md
           else
@@ -260,8 +342,7 @@ jobs:
         if: ${{ inputs.special-release != 'none' }}
         with:
           artifacts: |
-            ${{ github.workspace }}/*PHP-*-PM*/*.tar.gz
-            ${{ github.workspace }}/*PHP-*-Windows-PM*/*.zip
+            ${{ github.workspace }}/*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}*/*.tar.gz
             ${{ github.workspace }}/*.gdbinit
           name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - Recommended
           tag: pm${{ inputs.pm-version-major }}-latest
@@ -276,8 +357,7 @@ jobs:
         uses: ncipollo/release-action@v1.20.0
         with:
           artifacts: |
-            ${{ github.workspace }}/*PHP-*-PM*/*.tar.gz
-            ${{ github.workspace }}/*PHP-*-Windows-PM*/*.zip
+            ${{ github.workspace }}/*PHP-${{ inputs.php-version-base }}-*-PM${{ inputs.pm-version-major }}*/*.tar.gz
             ${{ github.workspace }}/*.gdbinit
           name: PM ${{ inputs.pm-version-major }}.x (${{ steps.date.outputs.DATE }}) - PHP ${{ inputs.php-version-base }}
           tag: pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
