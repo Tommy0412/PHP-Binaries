@@ -1288,7 +1288,6 @@ $HAS_DEBUG \
 --enable-static=yes \
 --enable-shmop \
 --enable-zts \
---disable-short-tags \
 $HAVE_PCNTL \
 $HAVE_MYSQLI \
 --enable-bcmath \
@@ -1301,7 +1300,6 @@ $HAVE_MYSQLI \
 --enable-recursionguard \
 --enable-xxhash \
 --enable-arraydebug \
---enable-encoding \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 write_compile
