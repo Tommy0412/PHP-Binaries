@@ -76,27 +76,28 @@ jobs:
           trap "exit 1" ERR
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
-- name: Create tarball
-  if: success()
-  run: |
-    if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-      mv bin/php7 bin
-      tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
-    elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
-      tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
-    else
-      echo "Error: bin or bin/php7 directory missing or empty"
-      ls -la bin
-      ls -la bin/php7
-      exit 1
-    fi
-    if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-      tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
-    else
-      echo "Error: bin-debug directory missing or empty"
-      ls -la bin-debug
-      exit 1
-    fi
+      - name: Create tarball
+        if: success()
+        run: |
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mv bin/php7 bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
+          elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
+          else
+            echo "Error: bin or bin/php7 directory missing or empty"
+            ls -la bin
+            ls -la bin/php7
+            exit 1
+          fi
+
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la bin-debug
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()
@@ -187,27 +188,28 @@ jobs:
           trap "exit 1" ERR
           ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
-- name: Create tarball
-  if: success()
-  run: |
-    if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-      mv bin/php7 bin
-      tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
-    elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
-      tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
-    else
-      echo "Error: bin or bin/php7 directory missing or empty"
-      ls -la bin
-      ls -la bin/php7
-      exit 1
-    fi
-    if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-      tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
-    else
-      echo "Error: bin-debug directory missing or empty"
-      ls -la bin-debug
-      exit 1
-    fi
+      - name: Create tarball
+        if: success()
+        run: |
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mv bin/php7 bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+          elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+          else
+            echo "Error: bin or bin/php7 directory missing or empty"
+            ls -la bin
+            ls -la bin/php7
+            exit 1
+          fi
+
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la bin-debug
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()
@@ -244,7 +246,7 @@ jobs:
             tar_contents.log
             compile.sh
           if-no-files-found: warn
-          
+
   publish:
     name: Publish binaries
     needs: [android, android-arm32]
@@ -304,8 +306,7 @@ jobs:
 
       - name: Get date
         id: date
-        run: |
-          echo DATE=$(date -u +'%d %b %Y') >> $GITHUB_OUTPUT
+        run: echo DATE=$(date -u +'%d %b %Y') >> $GITHUB_OUTPUT
 
       - name: Update recommended PM release
         uses: ncipollo/release-action@v1.20.0
