@@ -79,15 +79,18 @@ jobs:
       - name: Create tarball
         if: success()
         run: |
+          # Safe tarball creation for arm64
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-            mv bin/php7 bin
+            mkdir -p bin
+            mv bin/php7/* bin/
+            rm -rf bin/php7
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
           elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
           else
             echo "Error: bin or bin/php7 directory missing or empty"
-            ls -la bin
-            ls -la bin/php7
+            ls -la bin || true
+            ls -la bin/php7 || true
             exit 1
           fi
 
@@ -95,7 +98,7 @@ jobs:
             tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
           else
             echo "Error: bin-debug directory missing or empty"
-            ls -la bin-debug
+            ls -la bin-debug || true
             exit 1
           fi
 
@@ -191,23 +194,26 @@ jobs:
       - name: Create tarball
         if: success()
         run: |
+          # Safe tarball creation for arm64
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-            mv bin/php7 bin
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+            mkdir -p bin
+            mv bin/php7/* bin/
+            rm -rf bin/php7
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}.tar.gz bin
           elif [ -d "bin" ] && [ "$(ls -A bin)" ]; then
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}.tar.gz bin
           else
             echo "Error: bin or bin/php7 directory missing or empty"
-            ls -la bin
-            ls -la bin/php7
+            ls -la bin || true
+            ls -la bin/php7 || true
             exit 1
           fi
 
           if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
           else
             echo "Error: bin-debug directory missing or empty"
-            ls -la bin-debug
+            ls -la bin-debug || true
             exit 1
           fi
 
