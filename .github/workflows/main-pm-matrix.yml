@@ -77,9 +77,23 @@ jobs:
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
       - name: Create tarball
+        if: success()
         run: |
-          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
-          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mv bin/php7 bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
+          else
+            echo "Error: bin/php7 directory missing or empty"
+            ls -la bin
+            exit 1
+          fi
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la .
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()
@@ -179,9 +193,23 @@ jobs:
           ./compile.sh -t android-arm -x -j 4 -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
       - name: Create tarball
+        if: success()
         run: |
-          tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
-          tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mv bin/php7 bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}.tar.gz bin
+          else
+            echo "Error: bin/php7 directory missing or empty"
+            ls -la bin
+            exit 1
+          fi
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la .
+            exit 1
+          fi
 
       - name: Upload build log
         if: always()
@@ -218,15 +246,7 @@ jobs:
             tar_contents.log
             compile.sh
           if-no-files-found: warn
-
-      - name: Upload workspace on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace-arm32
-          path: .
-          if-no-files-found: warn
-
+          
   publish:
     name: Publish binaries
     needs: [android, android-arm32]
