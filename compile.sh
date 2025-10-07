@@ -1137,8 +1137,38 @@ get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
 
 get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-write_library "PHP" "$PHP_VERSION"HAVE_VALGRIND
-
+write_library "PHP" "$PHP_VERSION"
+# Insert after line 1137
+write_out "PHP" "Cleaning previous PHP source..."
+rm -rf "$BUILD_DIR/php" "$BUILD_DIR/php-$PHP_VERSION" >> "$DIR/install.log" 2>&1
+write_out "PHP" "Downloading PHP $PHP_VERSION from https://www.php.net/distributions/php-$PHP_VERSION.tar.gz..."
+download_file "https://www.php.net/distributions/php-$PHP_VERSION.tar.gz" "php" | tar -zx -C "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+if [ $? -ne 0 ]; then
+    write_error "Failed to download or extract php-$PHP_VERSION.tar.gz!"
+    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+    exit 1
+fi
+write_out "PHP" "Checking extracted directory..."
+ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+if [ -d "$BUILD_DIR/php-$PHP_VERSION" ]; then
+    write_out "PHP" "Renaming php-$PHP_VERSION to php..."
+    mv "$BUILD_DIR/php-$PHP_VERSION" "$BUILD_DIR/php" >> "$DIR/install.log" 2>&1
+    if [ $? -ne 0 ]; then
+        write_error "Failed to rename php-$PHP_VERSION to php!"
+        ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+        exit 1
+    fi
+else
+    write_error "Extracted directory php-$PHP_VERSION not found!"
+    ls -la "$BUILD_DIR" >> "$DIR/install.log" 2>&1
+    exit 1
+fi
+write_out "PHP" "Verifying PHP source directory..."
+ls -la "$BUILD_DIR/php" >> "$DIR/install.log" 2>&1
+if [ ! -d "$BUILD_DIR/php" ]; then
+    write_error "PHP source directory 'php' not found!"
+    exit 1
+fi
 write_configure
 cd php
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
