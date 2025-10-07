@@ -209,6 +209,15 @@ jobs:
             exit 1
           fi
 
+          # Tar debug symbols
+          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+          else
+            echo "Error: bin-debug directory missing or empty"
+            ls -la bin-debug || true
+            exit 1
+          fi
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
