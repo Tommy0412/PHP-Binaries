@@ -95,13 +95,6 @@ jobs:
             exit 1
           fi
 
-          # Debug symbols (optional)
-          if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
-          else
-            echo "⚠️ bin-debug directory missing or empty (skipping)"
-          fi
-
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -190,7 +183,7 @@ jobs:
           set -ex
           trap "exit 1" ERR
 
-          ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+          ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
      
       - name: Create tarball
         if: success()
