@@ -1,3 +1,4 @@
+```yaml
 name: Build PHP binaries
 
 on:
@@ -73,26 +74,51 @@ jobs:
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
           set -ex
-          trap "exit 1" ERR
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Debug directory structure
+        if: always()
+        run: |
+          echo "Listing current directory:"
+          ls -la .
+          echo "Listing bin directory (if exists):"
+          ls -laR bin || echo "bin directory does not exist"
+          echo "Listing bin/php7 directory (if exists):"
+          ls -laR bin/php7 || echo "bin/php7 directory does not exist"
+          if [ -f bin/php7/bin/php ]; then
+            file bin/php7/bin/php
+            bin/php7/bin/php -v
+          else
+            echo "PHP binary not found in bin/php7/bin/php"
+          fi
 
       - name: Create tarball (arm64)
         if: always()
         run: |
+          # Debug contents before processing
+          echo "Pre-tar directory structure:" >> tar_debug.log
+          ls -laR bin >> tar_debug.log 2>&1 || echo "bin directory missing" >> tar_debug.log
+          
           # Move bin/php7 contents to bin if exists
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
             mkdir -p bin_new
-            mv bin/php7/* bin_new/ || true
+            mv bin/php7/* bin_new/ || { echo "Failed to move bin/php7 contents" >> tar_debug.log; }
             rm -rf bin
             mv bin_new bin
+          else
+            echo "Warning: bin/php7 is missing or empty" >> tar_debug.log
+            ls -laR bin/php7 >> tar_debug.log 2>&1 || echo "bin/php7 does not exist" >> tar_debug.log
           fi
+          
           # Create tar or log error
           if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
             tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
+            echo "Tarball contents:" >> tar_debug.log
+            cat tar_contents.log >> tar_debug.log
           else
-            echo "Error: bin directory missing or empty"
-            ls -laR bin || true
+            echo "Error: bin directory missing or empty" >> tar_debug.log
+            ls -laR bin >> tar_debug.log 2>&1 || echo "bin directory does not exist" >> tar_debug.log
             exit 1
           fi
 
@@ -120,6 +146,14 @@ jobs:
           path: tar_contents.log
           if-no-files-found: warn
 
+      - name: Upload tar debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tar-debug-log-arm64
+          path: tar_debug.log
+          if-no-files-found: warn
+
       - name: Upload artifacts (arm64)
         if: always()
         uses: actions/upload-artifact@v4
@@ -129,6 +163,7 @@ jobs:
             ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz
             install.log
             tar_contents.log
+            tar_debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -182,26 +217,51 @@ jobs:
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
           rm -rf ./download_cache
           set -ex
-          trap "exit 1" ERR
           ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+
+      - name: Debug directory structure
+        if: always()
+        run: |
+          echo "Listing current directory:"
+          ls -la .
+          echo "Listing bin directory (if exists):"
+          ls -laR bin || echo "bin directory does not exist"
+          echo "Listing bin/php7 directory (if exists):"
+          ls -laR bin/php7 || echo "bin/php7 directory does not exist"
+          if [ -f bin/php7/bin/php ]; then
+            file bin/php7/bin/php
+            bin/php7/bin/php -v
+          else
+            echo "PHP binary not found in bin/php7/bin/php"
+          fi
 
       - name: Create tarball (arm32)
         if: always()
         run: |
+          # Debug contents before processing
+          echo "Pre-tar directory structure:" >> tar_debug.log
+          ls -laR bin >> tar_debug.log 2>&1 || echo "bin directory missing" >> tar_debug.log
+          
           # Move bin/php7 contents to bin if exists
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
             mkdir -p bin_new
-            mv bin/php7/* bin_new/ || true
+            mv bin/php7/* bin_new/ || { echo "Failed to move bin/php7 contents" >> tar_debug.log; }
             rm -rf bin
             mv bin_new bin
+          else
+            echo "Warning: bin/php7 is missing or empty" >> tar_debug.log
+            ls -laR bin/php7 >> tar_debug.log 2>&1 || echo "bin/php7 does not exist" >> tar_debug.log
           fi
+          
           # Create tar or log error
           if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
             tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
+            echo "Tarball contents:" >> tar_debug.log
+            cat tar_contents.log >> tar_debug.log
           else
-            echo "Error: bin directory missing or empty"
-            ls -laR bin || true
+            echo "Error: bin directory missing or empty" >> tar_debug.log
+            ls -laR bin >> tar_debug.log 2>&1 || echo "bin directory does not exist" >> tar_debug.log
             exit 1
           fi
 
@@ -229,6 +289,14 @@ jobs:
           path: tar_contents.log
           if-no-files-found: warn
 
+      - name: Upload tar debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tar-debug-log-arm32
+          path: tar_debug.log
+          if-no-files-found: warn
+
       - name: Upload artifacts (arm32)
         if: always()
         uses: actions/upload-artifact@v4
@@ -238,6 +306,7 @@ jobs:
             ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
             install.log
             tar_contents.log
+            tar_debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -300,10 +369,3 @@ jobs:
           asset_path: artifacts/arm32/PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
           asset_name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
           asset_content_type: application/gzip
-
-      - name: Update latest tag target
-        run: |
-          git tag -f pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git tag -f pm${{ inputs.pm-version-major }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-latest
