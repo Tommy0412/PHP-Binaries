@@ -410,7 +410,7 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
         CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
         CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
         CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
-        LDFLAGS="-static -static-libgcc -Wl,-static"
+        LDFLAGS="-static -static-libgcc -Wl,-static -lc"
         DO_STATIC="yes"
         OPENSSL_TARGET="linux-generic32"
         export ac_cv_func_fnmatch_works=yes
