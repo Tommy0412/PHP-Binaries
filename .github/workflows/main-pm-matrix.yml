@@ -185,16 +185,22 @@ jobs:
 
           ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
      
-      - name: Create tarball
+      - name: Create tarball (arm32)
         if: success()
         run: |
-          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then 
-            mv bin/php7/* bin/
-            rm -rf bin/php7
-            tar -czf ./PHP-8.4-Android-arm32.tar.gz bin 
+          # If build placed files under bin/php7, move contents into bin
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
+            mkdir -p bin_new
+            mv bin/php7/* bin_new/ || true
+            rm -rf bin
+            mv bin_new bin
+          fi
+
+          if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
           else
-            echo "Error: bin/php7 directory missing or empty"
-            ls -la bin 
+            echo "Error: bin directory missing or empty"
+            ls -la bin || true
             exit 1
           fi
 
