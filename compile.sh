@@ -406,7 +406,7 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	elif [ "$COMPILE_TARGET" == "android-arm" ]; then
 		COMPILE_FOR_ANDROID=yes
 		[ -z "$march" ] && march="armv7-a";
-		[ -z "$mtune" ] && mtune=generic;
+		[ -z "$mtune" ] && mtune=generic-armv7-a;
 		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
 		CFLAGS="-static $CFLAGS"
