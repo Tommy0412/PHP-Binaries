@@ -402,22 +402,19 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		export ac_cv_func_fnmatch_works=yes #musl should be OK
 
 		write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
-	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
 	elif [ "$COMPILE_TARGET" == "android-arm" ]; then
-		COMPILE_FOR_ANDROID=yes
-		[ -z "$march" ] && march="armv7-a";
-		[ -z "$mtune" ] && mtune=generic-armv7-a;
-		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,-static"
-		DO_STATIC="yes"
-		OPENSSL_TARGET="linux-armv4"
-		export ac_cv_func_fnmatch_works=yes #musl should be OK
-
-		write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
-	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
+    COMPILE_FOR_ANDROID=yes
+    [ -z "$march" ] && march="armv7-a"
+    [ -z "$mtune" ] && mtune="cortex-a9"  # Or "generic-armv7-a"; cortex-a9 is common for Android ARMv7, supports NEON/VFPv3
+    TOOLCHAIN_PREFIX="arm-linux-musleabihf"
+    CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --prefix=$PREFIX"  # Ensure --prefix is set here if not global
+    CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"  # Explicit FPU/ABI; neon for better perf on v7
+    CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
+    LDFLAGS="-static -static-libgcc -Wl,-static"
+    DO_STATIC="yes"
+    OPENSSL_TARGET="linux-generic32"  # Try "linux-generic32" for better ARMv7 support; or add Configure flags: perl Configure linux-armv4 no-asm -D__ARM_ARCH__=7 -march=armv7-a
+    export ac_cv_func_fnmatch_works=yes
+    write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
 	else
 		write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
 		exit 1
