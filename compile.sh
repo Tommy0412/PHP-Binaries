@@ -405,9 +405,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
     elif [ "$COMPILE_TARGET" == "android-arm" ]; then
         COMPILE_FOR_ANDROID=yes
         [ -z "$march" ] && march="armv7-a"
-        [ -z "$mtune" ] && mtune="cortex-a9"
+        [ -z "$mtune" ] && mtune="generic"
         TOOLCHAIN_PREFIX="arm-linux-musleabihf"
-        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --prefix=\"$INSTALL_DIR\""
+        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
         CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
         CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
         LDFLAGS="-static -static-libgcc -Wl,-static"
