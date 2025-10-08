@@ -34,8 +34,28 @@ jobs:
 
       - name: Clean disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
-          df -h
+          echo "Disk space before cleanup:" > disk_cleanup.log
+          df -h >> disk_cleanup.log
+          # Remove only specific large directories if they exist
+          for dir in /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache; do
+            if [ -d "$dir" ]; then
+              echo "Removing $dir" >> disk_cleanup.log
+              timeout 60s sudo rm -rf "$dir" || echo "Warning: Failed to remove $dir" >> disk_cleanup.log
+            else
+              echo "$dir does not exist" >> disk_cleanup.log
+            fi
+          done
+          echo "Disk space after cleanup:" >> disk_cleanup.log
+          df -h >> disk_cleanup.log
+        continue-on-error: true
+
+      - name: Upload disk cleanup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disk-cleanup-log-arm64
+          path: disk_cleanup.log
+          if-no-files-found: warn
 
       - name: Install tools and dependencies
         run: |
@@ -47,7 +67,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v2
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v3
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -55,7 +75,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64-v2
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64-v3
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -94,12 +114,14 @@ jobs:
           else
             echo "PHP binary missing in bin/php7/bin/php" >> debug.log
           fi
+          echo "install_data contents:" >> debug.log
+          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
+          echo "sapi/cli contents:" >> debug.log
+          ls -la install_data/subdir/php/sapi/cli >> debug.log 2>&1 || echo "sapi/cli directory does not exist" >> debug.log
           echo "Disk space usage:" >> debug.log
           df -h >> debug.log
           echo "Environment variables:" >> debug.log
           env >> debug.log
-          echo "install_data contents:" >> debug.log
-          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
 
       - name: Upload debug log
         if: always()
@@ -180,8 +202,28 @@ jobs:
 
       - name: Clean disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
-          df -h
+          echo "Disk space before cleanup:" > disk_cleanup.log
+          df -h >> disk_cleanup.log
+          # Remove only specific large directories if they exist
+          for dir in /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache; do
+            if [ -d "$dir" ]; then
+              echo "Removing $dir" >> disk_cleanup.log
+              timeout 60s sudo rm -rf "$dir" || echo "Warning: Failed to remove $dir" >> disk_cleanup.log
+            else
+              echo "$dir does not exist" >> disk_cleanup.log
+            fi
+          done
+          echo "Disk space after cleanup:" >> disk_cleanup.log
+          df -h >> disk_cleanup.log
+        continue-on-error: true
+
+      - name: Upload disk cleanup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disk-cleanup-log-arm32
+          path: disk_cleanup.log
+          if-no-files-found: warn
 
       - name: Install tools and dependencies
         run: |
@@ -193,7 +235,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v2
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v3
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -201,7 +243,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32-v2
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32-v3
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -240,12 +282,14 @@ jobs:
           else
             echo "PHP binary missing in bin/php7/bin/php" >> debug.log
           fi
+          echo "install_data contents:" >> debug.log
+          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
+          echo "sapi/cli contents:" >> debug.log
+          ls -la install_data/subdir/php/sapi/cli >> debug.log 2>&1 || echo "sapi/cli directory does not exist" >> debug.log
           echo "Disk space usage:" >> debug.log
           df -h >> debug.log
           echo "Environment variables:" >> debug.log
           env >> debug.log
-          echo "install_data contents:" >> debug.log
-          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
 
       - name: Upload debug log
         if: always()
