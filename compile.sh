@@ -382,7 +382,7 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
 		CFLAGS="-static $CFLAGS"
 		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,-static"
+		LDFLAGS="-static -static-libgcc"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-aarch64"
 		export ac_cv_func_fnmatch_works=yes #musl should be OK
@@ -396,7 +396,7 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
 		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
 		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,-static -lc"
+		LDFLAGS="-static -static-libgcc -lc"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-generic32"
 		export ac_cv_func_fnmatch_works=yes
@@ -1115,6 +1115,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 
 	mv ext/mysqlnd/config9.m4 ext/mysqlnd/config.m4
 	sed  -i=".backup" "s{ext/mysqlnd/php_mysqlnd_config.h{config.h{" ext/mysqlnd/mysqlnd_portability.h
+	
+	# Fix for static linking issues with libgcc_s
+	export LDFLAGS="$LDFLAGS -Wl,--no-as-needed"
 elif [ "$DO_STATIC" == "yes" ]; then
 export LIBS="$LIBS -ldl"
 fi
@@ -1200,6 +1203,10 @@ sed -i=".backup" 's/install-programs install-pharcmd$/install-programs/g' Makefi
 
 if [[ "$DO_STATIC" == "yes" ]]; then
 	sed -i=".backup" 's/--mode=link $(CC)/--mode=link $(CXX)/g' Makefile
+	# Fix for libgcc_s linking issues in static builds
+	sed -i=".backup" 's/-lgcc_s//g' Makefile
+	# Fix opcache linking specifically - remove problematic static flags
+	sed -i=".backup" 's/-all-static/-static/g' Makefile
 fi
 
 make -j $THREADS >> "$DIR/install.log" 2>&1
