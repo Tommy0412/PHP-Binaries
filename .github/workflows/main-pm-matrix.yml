@@ -1,4 +1,3 @@
-```yaml
 name: Build PHP binaries
 
 on:
@@ -308,4 +307,3 @@ jobs:
           git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
           git tag -f pm${{ inputs.pm-version-major }}-latest
           git push -f origin pm${{ inputs.pm-version-major }}-latest
-```
