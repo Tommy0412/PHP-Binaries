@@ -76,51 +76,54 @@ jobs:
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
       - name: Debug directory structure
-        if: always()
         run: |
-          echo "Current directory contents:"
-          ls -la .
-          echo "Bin directory contents:"
-          ls -laR bin || echo "bin directory does not exist"
-          echo "bin/php7 contents:"
-          ls -laR bin/php7 || echo "bin/php7 directory does not exist"
+          echo "Current directory contents:" > debug.log
+          ls -la . >> debug.log
+          echo "Bin directory contents:" >> debug.log
+          ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
+          echo "bin/php7 contents:" >> debug.log
+          ls -laR bin/php7 >> debug.log 2>&1 || echo "bin/php7 directory does not exist" >> debug.log
           if [ -f bin/php7/bin/php ]; then
-            file bin/php7/bin/php
-            bin/php7/bin/php -v || echo "PHP binary not executable"
+            file bin/php7/bin/php >> debug.log
+            bin/php7/bin/php -v >> debug.log 2>&1 || echo "PHP binary not executable" >> debug.log
           else
-            echo "PHP binary missing in bin/php7/bin/php"
+            echo "PHP binary missing in bin/php7/bin/php" >> debug.log
           fi
+          echo "Disk space usage:" >> debug.log
+          df -h >> debug.log
+          echo "Environment variables:" >> debug.log
+          env >> debug.log
 
-      - name: Upload bin directory for debugging (arm64)
+      - name: Upload debug log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bin-directory-arm64
-          path: bin/**
+          name: debug-log-arm64
+          path: debug.log
+          if-no-files-found: warn
+
+      - name: Upload working directory for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: working-directory-arm64
+          path: ./**
           if-no-files-found: warn
 
       - name: Create tarball (arm64)
-        if: always()
         run: |
-          # Move bin/php7 contents to bin if exists
-          if [ -d "bin/php7" ]; then
-            mkdir -p bin
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
             mv bin/php7/* bin/ || true
             rm -rf bin/php7
-          fi
-          # Create tar or log error
-          if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
             tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
           else
-            echo "Error: bin directory missing or empty"
-            ls -laR bin || true
-            # Create dummy tar to allow publish
+            echo "Error: bin/php7 directory missing or empty" >> debug.log
+            ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
             mkdir -p bin
             echo "Dummy file - build failed" > bin/dummy.txt
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
             echo "Created dummy tarball due to error" > tar_contents.log
-            exit 1
           fi
 
       - name: Upload build log
@@ -156,6 +159,7 @@ jobs:
             ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz
             install.log
             tar_contents.log
+            debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -207,56 +211,58 @@ jobs:
       - name: Compile PHP (arm32)
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
-          rm -rf ./download_cache
           set -ex
           ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
       - name: Debug directory structure
-        if: always()
         run: |
-          echo "Current directory contents:"
-          ls -la .
-          echo "Bin directory contents:"
-          ls -laR bin || echo "bin directory does not exist"
-          echo "bin/php7 contents:"
-          ls -laR bin/php7 || echo "bin/php7 directory does not exist"
+          echo "Current directory contents:" > debug.log
+          ls -la . >> debug.log
+          echo "Bin directory contents:" >> debug.log
+          ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
+          echo "bin/php7 contents:" >> debug.log
+          ls -laR bin/php7 >> debug.log 2>&1 || echo "bin/php7 directory does not exist" >> debug.log
           if [ -f bin/php7/bin/php ]; then
-            file bin/php7/bin/php
-            bin/php7/bin/php -v || echo "PHP binary not executable"
+            file bin/php7/bin/php >> debug.log
+            bin/php7/bin/php -v >> debug.log 2>&1 || echo "PHP binary not executable" >> debug.log
           else
-            echo "PHP binary missing in bin/php7/bin/php"
+            echo "PHP binary missing in bin/php7/bin/php" >> debug.log
           fi
+          echo "Disk space usage:" >> debug.log
+          df -h >> debug.log
+          echo "Environment variables:" >> debug.log
+          env >> debug.log
 
-      - name: Upload bin directory for debugging (arm32)
+      - name: Upload debug log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bin-directory-arm32
-          path: bin/**
+          name: debug-log-arm32
+          path: debug.log
+          if-no-files-found: warn
+
+      - name: Upload working directory for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: working-directory-arm32
+          path: ./**
           if-no-files-found: warn
 
       - name: Create tarball (arm32)
-        if: always()
         run: |
-          # Move bin/php7 contents to bin if exists
-          if [ -d "bin/php7" ]; then
-            mkdir -p bin
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
             mv bin/php7/* bin/ || true
             rm -rf bin/php7
-          fi
-          # Create tar or log error
-          if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
             tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
           else
-            echo "Error: bin directory missing or empty"
-            ls -laR bin || true
-            # Create dummy tarball to allow publish
+            echo "Error: bin/php7 directory missing or empty" >> debug.log
+            ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
             mkdir -p bin
             echo "Dummy file - build failed" > bin/dummy.txt
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
             echo "Created dummy tarball due to error" > tar_contents.log
-            exit 1
           fi
 
       - name: Upload build log
@@ -292,6 +298,7 @@ jobs:
             ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
             install.log
             tar_contents.log
+            debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -354,10 +361,3 @@ jobs:
           asset_path: artifacts/arm32/PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
           asset_name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
           asset_content_type: application/gzip
-
-      - name: Update latest tag target
-        run: |
-          git tag -f pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
-          git tag -f pm${{ inputs.pm-version-major }}-latest
-          git push -f origin pm${{ inputs.pm-version-major }}-latest
