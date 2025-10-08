@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       pm-version-major:
-        description: 'PocketMine-MP major version'
+        description: 'Android PHP major version'
         required: true
         type: number
       php-version-base:
@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       pm-preview:
-        description: 'Mark releases as pre-release'
+        description: "Mark releases as pre-release"
         required: true
         type: boolean
 
@@ -32,42 +32,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Clean disk space
-        run: |
-          echo "Disk space before cleanup:" > disk_cleanup.log
-          df -h >> disk_cleanup.log
-          # Remove only specific large directories if they exist
-          for dir in /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache; do
-            if [ -d "$dir" ]; then
-              echo "Removing $dir" >> disk_cleanup.log
-              timeout 60s sudo rm -rf "$dir" || echo "Warning: Failed to remove $dir" >> disk_cleanup.log
-            else
-              echo "$dir does not exist" >> disk_cleanup.log
-            fi
-          done
-          echo "Disk space after cleanup:" >> disk_cleanup.log
-          df -h >> disk_cleanup.log
-        continue-on-error: true
-
-      - name: Upload disk cleanup log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: disk-cleanup-log-arm64
-          path: disk_cleanup.log
-          if-no-files-found: warn
-
       - name: Install tools and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c libzip-dev libssl-dev zlib1g-dev
+          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
 
       - name: Prepare compile.sh download cache
         id: download-cache
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v3
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -75,7 +50,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64-v3
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -98,61 +73,26 @@ jobs:
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
           set -ex
+          trap "exit 1" ERR
           ./compile.sh -t android-aarch64 -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
 
-      - name: Debug directory structure
-        run: |
-          echo "Current directory contents:" > debug.log
-          ls -la . >> debug.log
-          echo "Bin directory contents:" >> debug.log
-          ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
-          echo "bin/php7 contents:" >> debug.log
-          ls -laR bin/php7 >> debug.log 2>&1 || echo "bin/php7 directory does not exist" >> debug.log
-          if [ -f bin/php7/bin/php ]; then
-            file bin/php7/bin/php >> debug.log
-            bin/php7/bin/php -v >> debug.log 2>&1 || echo "PHP binary not executable" >> debug.log
-          else
-            echo "PHP binary missing in bin/php7/bin/php" >> debug.log
-          fi
-          echo "install_data contents:" >> debug.log
-          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
-          echo "sapi/cli contents:" >> debug.log
-          ls -la install_data/subdir/php/sapi/cli >> debug.log 2>&1 || echo "sapi/cli directory does not exist" >> debug.log
-          echo "Disk space usage:" >> debug.log
-          df -h >> debug.log
-          echo "Environment variables:" >> debug.log
-          env >> debug.log
-
-      - name: Upload debug log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-log-arm64
-          path: debug.log
-          if-no-files-found: warn
-
-      - name: Upload working directory for debugging
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: working-directory-arm64
-          path: ./**
-          if-no-files-found: warn
-
       - name: Create tarball (arm64)
+        if: success()
         run: |
+          # If build placed files under bin/php7, move contents into bin
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-            mv bin/php7/* bin/ || true
-            rm -rf bin/php7
+            mkdir -p bin_new
+            mv bin/php7/* bin_new/ || true
+            rm -rf bin
+            mv bin_new bin
+          fi
+
+          if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
             tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
-            tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
           else
-            echo "Error: bin/php7 directory missing or empty" >> debug.log
-            ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
-            mkdir -p bin
-            echo "Dummy file - build failed" > bin/dummy.txt
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
-            echo "Created dummy tarball due to error" > tar_contents.log
+            echo "Error: bin directory missing or empty"
+            ls -la bin || true
+            exit 1
           fi
 
       - name: Upload build log
@@ -185,10 +125,9 @@ jobs:
         with:
           name: PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}
           path: |
-            ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz
+            ./*PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}*.tar.gz
             install.log
             tar_contents.log
-            debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -200,42 +139,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Clean disk space
-        run: |
-          echo "Disk space before cleanup:" > disk_cleanup.log
-          df -h >> disk_cleanup.log
-          # Remove only specific large directories if they exist
-          for dir in /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache; do
-            if [ -d "$dir" ]; then
-              echo "Removing $dir" >> disk_cleanup.log
-              timeout 60s sudo rm -rf "$dir" || echo "Warning: Failed to remove $dir" >> disk_cleanup.log
-            else
-              echo "$dir does not exist" >> disk_cleanup.log
-            fi
-          done
-          echo "Disk space after cleanup:" >> disk_cleanup.log
-          df -h >> disk_cleanup.log
-        continue-on-error: true
-
-      - name: Upload disk cleanup log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: disk-cleanup-log-arm32
-          path: disk_cleanup.log
-          if-no-files-found: warn
-
       - name: Install tools and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c libzip-dev libssl-dev zlib1g-dev
+          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
 
       - name: Prepare compile.sh download cache
         id: download-cache
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v3
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -243,7 +157,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32-v3
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -265,62 +179,23 @@ jobs:
       - name: Compile PHP (arm32)
         run: |
           export PATH="${{ github.workspace }}/compiler/bin:$PATH"
+          rm -rf ./download_cache
           set -ex
+          trap "exit 1" ERR
+
           ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
-
-      - name: Debug directory structure
+     
+      - name: Create tarball
+        if: success()
         run: |
-          echo "Current directory contents:" > debug.log
-          ls -la . >> debug.log
-          echo "Bin directory contents:" >> debug.log
-          ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
-          echo "bin/php7 contents:" >> debug.log
-          ls -laR bin/php7 >> debug.log 2>&1 || echo "bin/php7 directory does not exist" >> debug.log
-          if [ -f bin/php7/bin/php ]; then
-            file bin/php7/bin/php >> debug.log
-            bin/php7/bin/php -v >> debug.log 2>&1 || echo "PHP binary not executable" >> debug.log
-          else
-            echo "PHP binary missing in bin/php7/bin/php" >> debug.log
-          fi
-          echo "install_data contents:" >> debug.log
-          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
-          echo "sapi/cli contents:" >> debug.log
-          ls -la install_data/subdir/php/sapi/cli >> debug.log 2>&1 || echo "sapi/cli directory does not exist" >> debug.log
-          echo "Disk space usage:" >> debug.log
-          df -h >> debug.log
-          echo "Environment variables:" >> debug.log
-          env >> debug.log
-
-      - name: Upload debug log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-log-arm32
-          path: debug.log
-          if-no-files-found: warn
-
-      - name: Upload working directory for debugging
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: working-directory-arm32
-          path: ./**
-          if-no-files-found: warn
-
-      - name: Create tarball (arm32)
-        run: |
-          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then
-            mv bin/php7/* bin/ || true
+          if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then 
+            mv bin/php7/* bin/
             rm -rf bin/php7
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
-            tar -tzf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz > tar_contents.log
+            tar -czf ./PHP-8.4-Android-arm32.tar.gz bin 
           else
-            echo "Error: bin/php7 directory missing or empty" >> debug.log
-            ls -laR bin >> debug.log 2>&1 || echo "bin directory does not exist" >> debug.log
-            mkdir -p bin
-            echo "Dummy file - build failed" > bin/dummy.txt
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz bin
-            echo "Created dummy tarball due to error" > tar_contents.log
+            echo "Error: bin/php7 directory missing or empty"
+            ls -la bin 
+            exit 1
           fi
 
       - name: Upload build log
@@ -353,10 +228,9 @@ jobs:
         with:
           name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}
           path: |
-            ./PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
+            ./*PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}*.tar.gz
             install.log
             tar_contents.log
-            debug.log
             compile.sh
           if-no-files-found: warn
 
@@ -373,50 +247,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download Arm64 Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}
-          path: artifacts/arm64
-
-      - name: Download Arm32 Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}
-          path: artifacts/arm32
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: PHP-Build-${{ github.run_number }}
-          release_name: PHP Build ${{ github.run_number }}
-          draft: false
-          prerelease: ${{ inputs.pm-preview }}
-          body: |
-            PHP binaries for PocketMine-MP ${{ inputs.pm-version-major }} (PHP ${{ inputs.php-version-base }}).
-            - Arm64: Android aarch64
-            - Arm32: Android armv7
-            Note: If tarballs contain only dummy.txt, check debug.log and install.log for build errors.
-
-      - name: Upload Arm64 Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/arm64/PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz
-          asset_name: PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Arm32 Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/arm32/PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
-          asset_name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}.tar.gz
-          asset_content_type: application/gzip
+      - name: Update latest tag target
+        run: |
+          git tag -f pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
+          git push -f origin pm${{ inputs.pm-version-major }}-php-${{ inputs.php-version-base }}-latest
+          git tag -f pm${{ inputs.pm-version-major }}-latest
+          git push -f origin pm${{ inputs.pm-version-major }}-latest
