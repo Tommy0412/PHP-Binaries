@@ -387,39 +387,38 @@ OPENSSL_TARGET=""
 CMAKE_GLOBAL_EXTRA_FLAGS=""
 
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
-	export CROSS_COMPILER="$PATH"
-	if [ "$COMPILE_TARGET" == "android-aarch64" ]; then
-		COMPILE_FOR_ANDROID=yes
-		[ -z "$march" ] && march="armv8-a";
-		[ -z "$mtune" ] && mtune=generic;
-		TOOLCHAIN_PREFIX="aarch64-linux-musl"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,-static"
-		DO_STATIC="yes"
-		OPENSSL_TARGET="linux-aarch64"
-		export ac_cv_func_fnmatch_works=yes #musl should be OK
+    export CROSS_COMPILER="$PATH"
+    if [ "$COMPILE_TARGET" == "android-aarch64" ]; then
+        COMPILE_FOR_ANDROID=yes
+        [ -z "$march" ] && march="armv8-a";
+        [ -z "$mtune" ] && mtune=generic;
+        TOOLCHAIN_PREFIX="aarch64-linux-musl"
+        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+        CFLAGS="-static $CFLAGS"
+        CXXFLAGS="-static $CXXFLAGS"
+        LDFLAGS="-static -static-libgcc -Wl,-static"
+        DO_STATIC="yes"
+        OPENSSL_TARGET="linux-aarch64"
+        export ac_cv_func_fnmatch_works=yes #musl should be OK
 
-		write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
-elif [ "$COMPILE_TARGET" == "android-arm" ]; then
-    COMPILE_FOR_ANDROID=yes
-    [ -z "$march" ] && march="armv7-a"
-    [ -z "$mtune" ] && mtune="cortex-a9"
-    TOOLCHAIN_PREFIX="arm-linux-musleabihf"
-    CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --prefix=\"$INSTALL_DIR\""  # Fix: use $INSTALL_DIR
-    CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
-    CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
-    LDFLAGS="-static -static-libgcc -Wl,-static"
-    DO_STATIC="yes"
-    OPENSSL_TARGET="linux-generic32"
-    export ac_cv_func_fnmatch_works=yes
-    write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
-fi
-	else
-		write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
-		exit 1
-	fi
+        write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
+    elif [ "$COMPILE_TARGET" == "android-arm" ]; then
+        COMPILE_FOR_ANDROID=yes
+        [ -z "$march" ] && march="armv7-a"
+        [ -z "$mtune" ] && mtune="cortex-a9"
+        TOOLCHAIN_PREFIX="arm-linux-musleabihf"
+        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --prefix=\"$INSTALL_DIR\""
+        CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
+        CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
+        LDFLAGS="-static -static-libgcc -Wl,-static"
+        DO_STATIC="yes"
+        OPENSSL_TARGET="linux-generic32"
+        export ac_cv_func_fnmatch_works=yes
+        write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
+    else
+        write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
+        exit 1
+    fi
 else
 	if [[ "$COMPILE_TARGET" == "" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
 		if [ "$(uname -m)" == "arm64" ]; then
@@ -1162,7 +1161,7 @@ get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydeb
 
 get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
 
-write_library "PHP" "$PHP_VERSION"HAVE_VALGRIND 
+write_library "PHP" "$PHP_VERSION"
 
 write_configure
 cd php
