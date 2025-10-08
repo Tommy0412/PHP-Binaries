@@ -2,7 +2,9 @@ name: Build and publish PHP binaries
 
 on:
   push:
-    branches: "**"
+    branches: 
+      - stable
+      - main
     tags-ignore: "**"
   pull_request:
   workflow_dispatch:
@@ -33,26 +35,46 @@ jobs:
     needs: [all-builds]
     runs-on: ubuntu-latest
     if: ${{ github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
+    
+    permissions:
+      contents: write
 
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          path: ${{ github.workspace }}
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find ./artifacts -name "*.tar.gz" -type f | head -20
+          echo "Total .tar.gz files:"
+          find ./artifacts -name "*.tar.gz" -type f | wc -l
 
       - name: Generate release notes
         run: |
-          echo "Built by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
-          echo "Build number: ${{ github.run_number }}" >> changelog.md
+          echo "# PHP Binaries Release" > changelog.md
+          echo "" >> changelog.md
+          echo "**Build Information:**" >> changelog.md
+          echo "- Build Number: ${{ github.run_number }}" >> changelog.md
+          echo "- Commit: ${{ github.sha }}" >> changelog.md
+          echo "- Branch: ${{ github.ref_name }}" >> changelog.md
+          echo "- Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
+          echo "" >> changelog.md
+          echo "**Included Binaries:**" >> changelog.md
+          echo "\`\`\`" >> changelog.md
+          find ./artifacts -name "*.tar.gz" -type f -exec basename {} \; | sort >> changelog.md
+          echo "\`\`\`" >> changelog.md
 
       - name: Create release
         uses: ncipollo/release-action@v1.20.0
         with:
-          artifacts: |
-            ${{ github.workspace }}/*PHP-*-PM*/*.tar.gz
-
-          name: PHP (Build ${{ github.run_number }}) - Archive
-          tag: php-build-${{ github.run_number }}
+          artifacts: "./artifacts/**/*.tar.gz"
+          name: PHP Binaries - Build ${{ github.run_number }}
+          tag: php-binaries-${{ github.run_number }}
           commit: ${{ github.sha }}
           allowUpdates: false
-          bodyFile: ${{ github.workspace }}/changelog.md
+          bodyFile: changelog.md
+          draft: false
+          prerelease: false
