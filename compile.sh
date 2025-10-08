@@ -4,7 +4,6 @@ PHP_VERSIONS=("8.1.33" "8.2.29" "8.3.26" "8.4.13" "8.5.0RC1")
 #### NOTE: Tags with "v" prefixes behave weirdly in the GitHub API. They'll be stripped in some places but not others.
 #### Use commit hashes to avoid this.
 
-
 ZLIB_VERSION="1.3.1"
 GMP_VERSION="6.3.0"
 
@@ -32,10 +31,6 @@ EXT_IGBINARY_VERSION="3.2.16"
 EXT_CRYPTO_VERSION="999b3c7edbc7f8ca4fdeb0bb4bbae488ad0daf07" #release not tagged
 EXT_RECURSIONGUARD_VERSION="0.1.0"
 EXT_LIBDEFLATE_VERSION="0.2.1"
-EXT_MORTON_VERSION="0.1.2"
-EXT_XXHASH_VERSION="0.2.0"
-EXT_ARRAYDEBUG_VERSION="0.2.0"
-EXT_ENCODING_VERSION="1.0.0"
 
 EXT_PMMPTHREAD_VERSION_PHP85="4aa34a27feaa43adba5f1e93939828d1d7afdefc"
 EXT_XDEBUG_VERSION_PHP85="86727b0b05b5d0a9c4fb85021f05d7931e2c3a35"
@@ -127,19 +122,10 @@ if [ $ERRORS -ne 0 ]; then
 	exit 1
 fi
 
-#if type llvm-gcc >/dev/null 2>&1; then
-#	export CC="llvm-gcc"
-#	export CXX="llvm-g++"
-#	export AR="llvm-ar"
-#	export AS="llvm-as"
-#	export RANLIB=llvm-ranlib
-#else
-	export CC="gcc"
-	export CXX="g++"
-	#export AR="gcc-ar"
-	export RANLIB=ranlib
-	export STRIP="strip"
-#fi
+export CC="gcc"
+export CXX="g++"
+export RANLIB=ranlib
+export STRIP="strip"
 
 COMPILE_FOR_ANDROID=no
 HAVE_MYSQLI="--enable-mysqlnd --with-mysqli=mysqlnd"
@@ -387,110 +373,41 @@ OPENSSL_TARGET=""
 CMAKE_GLOBAL_EXTRA_FLAGS=""
 
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
-    export CROSS_COMPILER="$PATH"
-    if [ "$COMPILE_TARGET" == "android-aarch64" ]; then
-        COMPILE_FOR_ANDROID=yes
-        [ -z "$march" ] && march="armv8-a";
-        [ -z "$mtune" ] && mtune=generic;
-        TOOLCHAIN_PREFIX="aarch64-linux-musl"
-        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-        CFLAGS="-static $CFLAGS"
-        CXXFLAGS="-static $CXXFLAGS"
-        LDFLAGS="-static -static-libgcc -Wl,-static"
-        DO_STATIC="yes"
-        OPENSSL_TARGET="linux-aarch64"
-        export ac_cv_func_fnmatch_works=yes #musl should be OK
-
-        write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
-    elif [ "$COMPILE_TARGET" == "android-arm" ]; then
-        COMPILE_FOR_ANDROID=yes
-        [ -z "$march" ] && march="armv7-a"
-        [ -z "$mtune" ] && mtune="generic-armv7-a"
-        TOOLCHAIN_PREFIX="arm-linux-musleabihf"
-        CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-        CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
-        CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
-        LDFLAGS="-static -static-libgcc -Wl,-static -lc"
-        DO_STATIC="yes"
-        OPENSSL_TARGET="linux-generic32"
-        export ac_cv_func_fnmatch_works=yes
-        write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
-    else
-        write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
-        exit 1
-    fi
-else
-	if [[ "$COMPILE_TARGET" == "" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
-		if [ "$(uname -m)" == "arm64" ]; then
-			COMPILE_TARGET="mac-arm64"
-		else
-			COMPILE_TARGET="mac-x86-64"
-		fi
-	fi
-	if [[ "$COMPILE_TARGET" == "linux" ]] || [[ "$COMPILE_TARGET" == "linux64" ]]; then
-		[ -z "$march" ] && march=x86-64;
-		[ -z "$mtune" ] && mtune=skylake;
-		CFLAGS="$CFLAGS -m64"
-		GMP_ABI="64"
-		OPENSSL_TARGET="linux-x86_64"
-		write_out "INFO" "Compiling for Linux x86_64"
-	elif [[ "$COMPILE_TARGET" == "mac-x86-64" ]]; then
-		[ -z "$march" ] && march=core2;
+	export CROSS_COMPILER="$PATH"
+	if [ "$COMPILE_TARGET" == "android-aarch64" ]; then
+		COMPILE_FOR_ANDROID=yes
+		[ -z "$march" ] && march="armv8-a";
 		[ -z "$mtune" ] && mtune=generic;
-		[ -z "$MACOSX_DEPLOYMENT_TARGET" ] && export MACOSX_DEPLOYMENT_TARGET=10.9;
-		CFLAGS="$CFLAGS -m64 -arch x86_64 -fomit-frame-pointer -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		LDFLAGS="$LDFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		if [ "$DO_STATIC" == "no" ]; then
-			LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-			export DYLD_LIBRARY_PATH="@loader_path/../lib"
-		fi
-		CFLAGS="$CFLAGS -Qunused-arguments"
-		GMP_ABI="64"
-		OPENSSL_TARGET="darwin64-x86_64-cc"
-		CMAKE_GLOBAL_EXTRA_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
-		write_out "INFO" "Compiling for MacOS x86_64"
-	#TODO: add aarch64 platforms (ios, android, rpi)
-	elif [[ "$COMPILE_TARGET" == "mac-arm64" ]]; then
-		[ -z "$MACOSX_DEPLOYMENT_TARGET" ] && export MACOSX_DEPLOYMENT_TARGET=11.0;
-		CFLAGS="$CFLAGS -arch arm64 -fomit-frame-pointer -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		LDFLAGS="$LDFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		if [ "$DO_STATIC" == "no" ]; then
-			LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-			export DYLD_LIBRARY_PATH="@loader_path/../lib"
-		fi
-		CFLAGS="$CFLAGS -Qunused-arguments"
-		GMP_ABI="64"
-		OPENSSL_TARGET="darwin64-arm64-cc"
-		CMAKE_GLOBAL_EXTRA_FLAGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
-		write_out "INFO" "Compiling for MacOS M1"
-	elif [[ "$COMPILE_TARGET" != "" ]]; then
-		write_error "Please supply a proper platform [mac-arm64 mac-x86-64 linux linux64] to compile for"
-		exit 1
-	elif [ -z "$CFLAGS" ]; then
-		if [ `getconf LONG_BIT` == "64" ]; then
-			write_out "INFO" "Compiling for current machine using 64-bit"
-			if [ "$(uname -m)" != "aarch64" ]; then
-				CFLAGS="-m64 $CFLAGS"
-			fi
-			GMP_ABI="64"
-		else
-			write_out "ERROR" "PocketMine-MP is no longer supported on 32-bit systems"
-			exit 1
-		fi
-	fi
-fi
+		TOOLCHAIN_PREFIX="aarch64-linux-musl"
+		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+		CFLAGS="-static $CFLAGS"
+		CXXFLAGS="-static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -Wl,-static"
+		DO_STATIC="yes"
+		OPENSSL_TARGET="linux-aarch64"
+		export ac_cv_func_fnmatch_works=yes #musl should be OK
 
-if [ "$DO_STATIC" == "yes" ]; then
-	HAVE_OPCACHE="no" #doesn't work on static builds
-	HAVE_OPCACHE_JIT="no"
-	write_out "warning" "OPcache cannot be used on static builds; this may have a negative effect on performance"
-	if [ "$FSANITIZE_OPTIONS" != "" ]; then
-		write_out "warning" "Sanitizers cannot be used on static builds"
+		write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
+	elif [ "$COMPILE_TARGET" == "android-arm" ]; then
+		COMPILE_FOR_ANDROID=yes
+		[ -z "$march" ] && march="armv7-a"
+		[ -z "$mtune" ] && mtune="generic-armv7-a"
+		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
+		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
+		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -Wl,-static -lc"
+		DO_STATIC="yes"
+		OPENSSL_TARGET="linux-generic32"
+		export ac_cv_func_fnmatch_works=yes
+		write_out "INFO" "Cross-compiling for Android ARMv7 (arm)"
+	else
+		write_error "Please supply a proper platform [android-aarch64, android-arm] to cross-compile"
+		exit 1
 	fi
-	if [ "$HAVE_XDEBUG" == "yes" ]; then
-	  write_out "warning" "Xdebug cannot be built in static mode"
-	  HAVE_XDEBUG="no"
-	fi
+else
+	write_error "Cross-compilation is required for Android builds"
+	exit 1
 fi
 
 if [ "$TOOLCHAIN_PREFIX" != "" ]; then
@@ -508,7 +425,6 @@ echo "int main(void){" >> test.c
 echo "printf(\"Hello world\n\");" >> test.c
 echo "return 0;" >> test.c
 echo "}" >> test.c
-
 
 type $CC >> "$DIR/install.log" 2>&1 || { write_error "Please install \"$CC\""; exit 1; }
 
@@ -820,7 +736,6 @@ function build_leveldb {
 		rm -rf "$leveldb_dir"
 		write_download
 		download_github_src "pmmp/leveldb" "$LEVELDB_VERSION" "leveldb" | tar -zx >> "$DIR/install.log" 2>&1
-		#download_file "https://github.com/Mojang/leveldb-mcpe/archive/$LEVELDB_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
 
 		write_configure
 		cd "$leveldb_dir"
@@ -1131,9 +1046,7 @@ write_out "PHP" "Downloading additional extensions..."
 
 get_github_extension "pmmpthread" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
 
-
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
-#get_pecl_extension "yaml" "$EXT_YAML_VERSION"
 
 get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
@@ -1152,14 +1065,6 @@ get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
 get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
 
 get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
-
-get_github_extension "morton" "$EXT_MORTON_VERSION" "pmmp" "ext-morton"
-
-get_github_extension "xxhash" "$EXT_XXHASH_VERSION" "pmmp" "ext-xxhash"
-
-get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydebug"
-
-get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
 
 write_library "PHP" "$PHP_VERSION"
 
@@ -1186,7 +1091,6 @@ if [ "$DO_STATIC" == "yes" ]; then
 	fi
 fi
 
-
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	sed -i=".backup" 's/pthreads_working=no/pthreads_working=yes/' ./configure
 	if [ "$IS_WINDOWS" != "yes" ]; then
@@ -1212,7 +1116,7 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	mv ext/mysqlnd/config9.m4 ext/mysqlnd/config.m4
 	sed  -i=".backup" "s{ext/mysqlnd/php_mysqlnd_config.h{config.h{" ext/mysqlnd/mysqlnd_portability.h
 elif [ "$DO_STATIC" == "yes" ]; then
-	export LIBS="$LIBS -ldl"
+export LIBS="$LIBS -ldl"
 fi
 
 if [ "$IS_WINDOWS" != "yes" ]; then
@@ -1409,7 +1313,6 @@ if [[ "$HAVE_XDEBUG" == "yes" ]]; then
 	write_out INFO "Xdebug is included, but disabled by default. To enable it, change 'xdebug.mode' in your php.ini file."
 fi
 
-
 cd "$DIR"
 if [ "$DO_CLEANUP" == "yes" ]; then
 	write_out "INFO" "Cleaning up"
@@ -1444,5 +1347,3 @@ if [ "$SEPARATE_SYMBOLS" != "no" ]; then
 fi
 
 date >> "$DIR/install.log" 2>&1
-write_out "PocketMine" "You should start the server now using \"./start.sh\"."
-write_out "PocketMine" "If it doesn't work, please send the \"install.log\" file to the Bug Tracker."
