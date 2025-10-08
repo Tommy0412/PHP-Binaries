@@ -32,17 +32,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Clean disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
+          df -h
+
       - name: Install tools and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
+          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c libzip-dev libssl-dev zlib1g-dev
 
       - name: Prepare compile.sh download cache
         id: download-cache
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v2
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -50,7 +55,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm64-v2
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -93,6 +98,8 @@ jobs:
           df -h >> debug.log
           echo "Environment variables:" >> debug.log
           env >> debug.log
+          echo "install_data contents:" >> debug.log
+          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
 
       - name: Upload debug log
         if: always()
@@ -171,17 +178,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Clean disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache
+          df -h
+
       - name: Install tools and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c
+          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c libzip-dev libssl-dev zlib1g-dev
 
       - name: Prepare compile.sh download cache
         id: download-cache
         uses: actions/cache@v4
         with:
           path: ./download_cache
-          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}
+          key: compile-sh-cache-ssl-https-${{ hashFiles('./compile.sh') }}-v2
           restore-keys: compile-sh-cache-ssl-https-
 
       - name: Fetch compiler cache
@@ -189,7 +201,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/compiler
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32
+          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-arm32-v2
 
       - name: Checkout musl-cross-make
         if: steps.compiler-cache.outputs.cache-hit != 'true'
@@ -232,6 +244,8 @@ jobs:
           df -h >> debug.log
           echo "Environment variables:" >> debug.log
           env >> debug.log
+          echo "install_data contents:" >> debug.log
+          ls -laR install_data >> debug.log 2>&1 || echo "install_data directory does not exist" >> debug.log
 
       - name: Upload debug log
         if: always()
@@ -341,6 +355,7 @@ jobs:
             PHP binaries for PocketMine-MP ${{ inputs.pm-version-major }} (PHP ${{ inputs.php-version-base }}).
             - Arm64: Android aarch64
             - Arm32: Android armv7
+            Note: If tarballs contain only dummy.txt, check debug.log and install.log for build errors.
 
       - name: Upload Arm64 Binary
         uses: actions/upload-release-asset@v1
