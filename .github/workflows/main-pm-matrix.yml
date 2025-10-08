@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       pm-version-major:
-        description: 'PocketMine-MP major version'
+        description: 'Android PHP major version'
         required: true
         type: number
       php-version-base:
@@ -88,7 +88,7 @@ jobs:
           fi
 
           if [ -d "bin" ] && [ "$(ls -A bin)" ]; then
-            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}.tar.gz bin
+            tar -czf ./PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}.tar.gz bin
           else
             echo "Error: bin directory missing or empty"
             ls -la bin || true
@@ -97,7 +97,7 @@ jobs:
 
           # Debug symbols (optional)
           if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
           else
             echo "⚠️ bin-debug directory missing or empty (skipping)"
           fi
@@ -130,9 +130,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}
           path: |
-            ./*PHP-${{ inputs.php-version-base }}-Android-arm64-PM${{ inputs.pm-version-major }}*.tar.gz
+            ./*PHP-${{ inputs.php-version-base }}-Android-arm64-${{ inputs.pm-version-major }}*.tar.gz
             install.log
             tar_contents.log
             compile.sh
@@ -190,7 +190,7 @@ jobs:
           set -ex
           trap "exit 1" ERR
 
-          ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
+          ./compile.sh -t android-arm -x -j 4 -g -P ${{ inputs.pm-version-major }} -D -z ${{ inputs.php-version-base }} 2>&1 | tee build.log
      
       - name: Create tarball
         if: success()
@@ -198,7 +198,7 @@ jobs:
           if [ -d "bin/php7" ] && [ "$(ls -A bin/php7)" ]; then 
             mv bin/php7/* bin/
             rm -rf bin/php7
-            tar -czf ./PHP-8.4-Android-arm64-PM5.tar.gz bin 
+            tar -czf ./PHP-8.4-Android-arm64.tar.gz bin 
           else
             echo "Error: bin/php7 directory missing or empty"
             ls -la bin 
@@ -207,7 +207,7 @@ jobs:
 
           # Tar debug symbols
           if [ -d "bin-debug" ] && [ "$(ls -A bin-debug)" ]; then
-            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32-PM${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
+            tar -czf ./Z-PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}-debugging-symbols.tar.gz bin-debug
           else
             echo "Error: bin-debug directory missing or empty"
             ls -la bin-debug || true
@@ -242,9 +242,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}
+          name: PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}
           path: |
-            ./*PHP-${{ inputs.php-version-base }}-Android-arm32${{ inputs.pm-version-major }}*.tar.gz
+            ./*PHP-${{ inputs.php-version-base }}-Android-arm32-${{ inputs.pm-version-major }}*.tar.gz
             install.log
             tar_contents.log
             compile.sh
