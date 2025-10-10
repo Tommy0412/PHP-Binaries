@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - pm-version-major: 5
-            php-version-base: "8.4"
+            php-version-base: "8.3"
 
     uses: ./.github/workflows/main-pm-matrix.yml
     with:
