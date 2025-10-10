@@ -27,7 +27,7 @@ jobs:
   android:
     name: Android arm64
     runs-on: ubuntu-latest
-    if: ${{ inputs.php-version-base == '8.4' }}
+    if: ${{ inputs.php-version-base == '8.3' }}
 
     steps:
       - uses: actions/checkout@v5
