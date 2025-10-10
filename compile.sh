@@ -133,14 +133,14 @@ COMPILE_TARGET=""
 IS_CROSSCOMPILE="no"
 IS_WINDOWS="no"
 DO_OPTIMIZE="yes"
-DO_STATIC="no"
+DO_STATIC="yes"
 DO_CLEANUP="yes"
 COMPILE_DEBUG="no"
 HAVE_VALGRIND="--without-valgrind"
 HAVE_OPCACHE="yes"
-HAVE_XDEBUG="yes"
+HAVE_XDEBUG="no"
 FSANITIZE_OPTIONS=""
-FLAGS_LTO=""
+FLAGS_LTO="-flto -fvisibility=hidden"
 HAVE_OPCACHE_JIT="no"
 
 COMPILE_GD="no"
@@ -222,7 +222,7 @@ while getopts "::t:j:sdDxfgnva:P:c:l:Jiz:" OPTION; do
 			;;
 		J)
 			write_out "opt" "Compiling JIT support in OPcache"
-			HAVE_OPCACHE_JIT="yes"
+HAVE_OPCACHE_JIT="no"
 			;;
 		i)
 			write_out "opt" "Disabling SSL certificate verification for downloads"
@@ -380,9 +380,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		[ -z "$mtune" ] && mtune=generic;
 		TOOLCHAIN_PREFIX="aarch64-linux-musl"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc"
+		CFLAGS="-static -Os -ffunction-sections -fdata-sections $CFLAGS"
+		CXXFLAGS="-static -Os -ffunction-sections -fdata-sections $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -Wl,--gc-sections -Wl,--strip-all"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-aarch64"
 		export ac_cv_func_fnmatch_works=yes #musl should be OK
@@ -394,9 +394,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		[ -z "$mtune" ] && mtune="generic-armv7-a"
 		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
-		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -lc"
+		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static -Os -ffunction-sections -fdata-sections $CFLAGS"
+		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static -Os -ffunction-sections -fdata-sections $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -lc -Wl,--gc-sections -Wl,--strip-all"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-generic32"
 		export ac_cv_func_fnmatch_works=yes
@@ -456,7 +456,7 @@ fi
 
 if [ "$DO_OPTIMIZE" != "no" ]; then
 	#FLAGS_LTO="-fvisibility=hidden -flto"
-	CFLAGS="$CFLAGS -O2"
+	CFLAGS="$CFLAGS -Os"  # Use -Os for size optimization instead of -O2
 	GENERIC_CFLAGS="$CFLAGS -ftree-vectorize -fomit-frame-pointer"
 	$CC $CFLAGS $GENERIC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
 	if [ $? -eq 0 ]; then
@@ -1212,6 +1212,27 @@ fi
 make -j $THREADS >> "$DIR/install.log" 2>&1
 write_install
 make install >> "$DIR/install.log" 2>&1
+
+# Post-installation size optimization
+write_out "INFO" "Optimizing binary size..."
+
+# Strip debug symbols and optimize the PHP binary (always)
+if [ -f "$INSTALL_DIR/bin/php" ]; then
+    $STRIP --strip-all --remove-section=.comment --remove-section=.note "$INSTALL_DIR/bin/php" >> "$DIR/install.log" 2>&1 || true
+    # Use UPX compression if available
+    if command -v upx >/dev/null 2>&1; then
+        upx --best --lzma "$INSTALL_DIR/bin/php" >> "$DIR/install.log" 2>&1 || true
+    fi
+    # Show final size
+    ls -lh "$INSTALL_DIR/bin/php" >> "$DIR/install.log" 2>&1 || true
+fi
+
+# Also strip shared libraries and extensions if present
+if [ -d "$INSTALL_DIR/lib" ]; then
+    find "$INSTALL_DIR/lib" -type f \( -name "*.so" -o -name "*.dylib" -o -name "*.so.*" -o -name "*.dylib.*" \) -print0 | while IFS= read -r -d '' file; do
+        "$STRIP" -S "$file" >> "$DIR/install.log" 2>&1 || true
+    done
+fi
 
 function relativize_macos_library_paths {
 	IFS=$'\n' OTOOL_OUTPUT=($(otool -L "$1"))
