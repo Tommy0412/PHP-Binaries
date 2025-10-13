@@ -1149,6 +1149,7 @@ fi
 
 RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$INSTALL_DIR" \
 --exec-prefix="$INSTALL_DIR" \
+--enable-embed=shared \
 --with-curl \
 --with-zlib \
 --with-gmp \
@@ -1181,7 +1182,7 @@ $HAS_DEBUG \
 --enable-ctype \
 --enable-sockets \
 --enable-shared=no \
---enable-static=yes \
+--enable-static=no \
 --enable-shmop \
 --enable-zts \
 $HAVE_PCNTL \
