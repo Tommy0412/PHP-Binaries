@@ -70,7 +70,40 @@ jobs:
           trap "exit 1" ERR
           # Build as shared library for Android
           ./compile.sh -t android-aarch64 -x -j 4 -g -P 5 -c ./download_cache -z 8.4 2>&1 | tee build.log
-
+      
+      - name: Check what was actually built
+        run: |
+          echo "=== CHECKING BUILD RESULTS ==="
+          echo "--- Looking for PHP binary ---"
+          find . -name "php" -type f 2>/dev/null
+          echo "--- Looking for any compiled files ---"
+          find . -name "*.so" -o -name "*.a" -o -name "*.o" | head -20
+          echo "--- Checking if bin/php7 has content ---"
+          if [ -d "bin/php7" ]; then
+            echo "bin/php7 exists with:"
+            find bin/php7 -type f | head -20
+            echo "Total files in bin/php7: $(find bin/php7 -type f | wc -l)"
+          else
+            echo "bin/php7 directory does NOT exist"
+          fi
+      - name: Check compilation success
+        run: |
+          echo "=== CHECKING COMPILATION STATUS ==="
+          if grep -q "error:" build.log; then
+            echo "❌ BUILD ERRORS FOUND:"
+            grep "error:" build.log | tail -10
+          else
+            echo "✅ No obvious errors in build.log"
+          fi
+          
+          if grep -q "Build complete\|make.*install" build.log; then
+            echo "✅ Build appears to have completed"
+          else
+            echo "❌ Build does not appear to have completed"
+            echo "Last lines of build.log:"
+            tail -20 build.log
+          fi
+          
       - name: Debug file structure
         if: always()
         run: |
