@@ -69,7 +69,7 @@ jobs:
           set -ex
           trap "exit 1" ERR
           # Build as shared library for Android
-          ./compile.sh -t android-aarch64 -x -j 4 -g -P 5 -c ./download_cache -z 8.4 2>&1 | tee build.log
+          ./compile.sh -t android-aarch64 -x -j 4 -P 5 -c ./download_cache -z 8.4 2>&1 | tee build.log
       
       - name: Check what was actually built
         run: |
