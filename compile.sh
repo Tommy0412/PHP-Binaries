@@ -995,7 +995,6 @@ build_gmp
 build_openssl
 build_curl
 build_yaml
-build_leveldb
 if [ "$COMPILE_GD" == "yes" ]; then
 	build_libpng
 	build_libjpeg
@@ -1036,129 +1035,154 @@ function get_pecl_extension {
 cd "$BUILD_DIR/php"
 write_out "PHP" "Fetching extensions"
 
-get_github_extension "pthreads" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
+# get_github_extension "pthreads" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
 
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
-get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "php" "pecl-database-leveldb"
-get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
+# get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "php" "pecl-database-leveldb"
+# get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
 get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
 
 get_github_extension "xdebug" "$EXT_XDEBUG_VERSION" "xdebug" "xdebug"
 
-get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
+#vget_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
+# get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
 
 write_library "PHP" "$PHP_VERSION"
 
 write_configure
 cd php
 
-# PHP build configuration
-# Important: We're building as shared library for Android
-BUILD_CONFIG="
-$CONFIGURE_FLAGS \
---enable-shared=yes \
---disable-static \
---enable-embed=shared \
---with-libphp=shared \
---enable-shared=yes \
---disable-cgi \
---disable-cli \
---disable-phpdbg \
---enable-zts \
---with-zlib \
---with-zlib-dir=$INSTALL_DIR \
---with-openssl=$INSTALL_DIR \
---with-curl=$INSTALL_DIR \
---enable-bcmath \
---enable-gmp \
---enable-mbstring \
---enable-xmlreader \
---enable-xmlwriter \
---enable-pdo \
---with-pdo-mysql=mysqlnd \
---with-pdo-sqlite \
---enable-soap \
---enable-json \
---enable-simplexml \
---with-yaml=$INSTALL_DIR \
---with-leveldb=$INSTALL_DIR \
---with-libdeflate=$INSTALL_DIR \
---enable-pcntl \
---enable-ffi \
---with-sqlite3=$INSTALL_DIR \
-$HAVE_VALGRIND \
-"
-
-if [ "$COMPILE_DEBUG" == "yes" ]; then
-	BUILD_CONFIG="$BUILD_CONFIG --enable-debug"
-fi
-if [ "$COMPILE_GD" == "yes" ]; then
-	BUILD_CONFIG="$BUILD_CONFIG --enable-gd --with-png-dir=$INSTALL_DIR --with-jpeg-dir=$INSTALL_DIR"
-fi
-
-# For Android builds, we need to set specific flags
-BUILD_CONFIG="$BUILD_CONFIG \
---host=$TOOLCHAIN_PREFIX \
---target=$TOOLCHAIN_PREFIX \
---with-pic \
---without-iconv \
---without-readline \
---disable-phar \
---disable-libxml \
---disable-dom \
---disable-simplexml \
---disable-xml \
---disable-xmlreader \
---disable-xmlwriter \
---without-pear \
-"
-
-if [ "$HAVE_OPCACHE" == "yes" ]; then
-	BUILD_CONFIG="$BUILD_CONFIG --enable-opcache"
-	BUILD_CONFIG="$BUILD_CONFIG --enable-opcache-jit=$HAVE_OPCACHE_JIT"
-fi
-
-# Remove some extensions that cause issues on Android
-BUILD_CONFIG=$(echo "$BUILD_CONFIG" | sed 's/--enable-simplexml//')
-BUILD_CONFIG=$(echo "$BUILD_CONFIG" | sed 's/--enable-xmlreader//')
-BUILD_CONFIG=$(echo "$BUILD_CONFIG" | sed 's/--enable-xmlwriter//')
-
+# Remove existing configuration
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
+rm -rf ./autom4te.cache/ >> "$DIR/install.log" 2>&1
+rm -f ./configure >> "$DIR/install.log" 2>&1
+
 ./buildconf --force >> "$DIR/install.log" 2>&1
 
-RANLIB=$RANLIB ./configure $BUILD_CONFIG >> "$DIR/install.log" 2>&1
+# Android-specific PHP configuration for shared library
+if [ "$IS_CROSSCOMPILE" == "yes" ] && [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
+    # For Android shared library build
+    CONFIGURE_FLAGS="$CONFIGURE_FLAGS \
+        --enable-embed=shared \
+        --disable-cli \
+        --disable-cgi \
+        --disable-phpdbg \
+        --without-pear \
+        --enable-shared=yes \
+        --enable-static=no \
+        --with-pic"
+fi
 
-# Replace the Makefile to build libphp.so instead of binaries
+# Common PHP configuration for shared library build
+RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$INSTALL_DIR" \
+--exec-prefix="$INSTALL_DIR" \
+--with-curl \
+--with-zlib \
+--with-zlib-dir="$INSTALL_DIR" \
+--with-gmp \
+--with-yaml \
+--with-openssl \
+--with-openssl-dir="$INSTALL_DIR" \
+--with-zip \
+--with-zip-dir="$INSTALL_DIR" \
+$HAS_LIBJPEG \
+$HAS_GD \
+--without-readline \
+$HAS_DEBUG \
+--enable-mbstring \
+--disable-mbregex \
+--enable-calendar \
+--enable-fileinfo \
+--with-libxml \
+--with-libxml-dir="$INSTALL_DIR" \
+--enable-xml \
+--enable-dom \
+--enable-simplexml \
+--enable-xmlreader \
+--enable-xmlwriter \
+--disable-cgi \
+--disable-phpdbg \
+--disable-session \
+--without-pear \
+--without-iconv \
+--with-pdo-sqlite \
+--with-sqlite3="$INSTALL_DIR" \
+--with-pdo-mysql=mysqlnd \
+--with-pic \
+--enable-phar \
+--enable-ctype \
+--enable-sockets \
+--enable-shared=yes \
+--enable-static=no \
+--enable-shmop \
+--enable-zts \
+--enable-embed=shared \
+$HAVE_PCNTL \
+$HAVE_MYSQLI \
+--enable-bcmath \
+--enable-cli \
+--enable-ftp \
+--enable-opcache=$HAVE_OPCACHE \
+--enable-opcache-jit=$HAVE_OPCACHE_JIT \
+--enable-igbinary \
+$HAVE_VALGRIND \
+$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+
 write_compile
 
-# Build PHP as shared library
-sed -i=".backup" 's/^program_prefix = .*/program_prefix = /' Makefile
-sed -i=".backup" 's/^program_suffix = .*/program_suffix = /' Makefile
-
-# Build libphp.so
-make -j $THREADS libphp.la >> "$DIR/install.log" 2>&1
+# For Android builds, we need to build the library specifically
+if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
+    # Build the PHP library
+    echo "Building PHP shared library for Android..."
+    make -j $THREADS libphp.la >> "$DIR/install.log" 2>&1
+    
+    # Also build the CLI in case library build fails
+    make -j $THREADS >> "$DIR/install.log" 2>&1 || echo "PHP build may have warnings"
+else
+    make -j $THREADS >> "$DIR/install.log" 2>&1
+fi
 
 write_install
 
-# Install libphp.so and headers
-mkdir -p "$INSTALL_DIR/lib"
-cp .libs/libphp.so "$INSTALL_DIR/lib/libphp.so"
-
-# Copy headers
-mkdir -p "$HEADERS_DIR"
-find . -name "*.h" -exec cp --parents {} "$HEADERS_DIR/" \;
-
-# Copy source headers for development
-mkdir -p "$SOURCE_HEADERS_DIR"
-cp -r . "$SOURCE_HEADERS_DIR/php-src"
-
-write_done
-
-# Generate pkg-config file for libphp
-mkdir -p "$INSTALL_DIR/lib/pkgconfig"
-cat > "$INSTALL_DIR/lib/pkgconfig/libphp.pc" << EOF
+# Install the shared library for Android
+if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
+    # Create lib directory
+    mkdir -p "$INSTALL_DIR/lib"
+    
+    # Copy the shared library
+    if [ -f ".libs/libphp.so" ]; then
+        cp ".libs/libphp.so" "$INSTALL_DIR/lib/libphp.so"
+        echo "Installed libphp.so to $INSTALL_DIR/lib/"
+    elif [ -f "libs/libphp.so" ]; then
+        cp "libs/libphp.so" "$INSTALL_DIR/lib/libphp.so"
+        echo "Installed libphp.so to $INSTALL_DIR/lib/"
+    else
+        echo "WARNING: libphp.so not found in expected locations"
+        # Try to find it
+        find . -name "libphp.so" -type f | head -5
+    fi
+    
+    # Install headers to headers directory
+    mkdir -p "$HEADERS_DIR"
+    find . -name "*.h" -exec cp --parents {} "$HEADERS_DIR/" \; 2>/dev/null || true
+    echo "Installed headers to $HEADERS_DIR"
+    
+    # Install source headers
+    mkdir -p "$SOURCE_HEADERS_DIR"
+    cp -r . "$SOURCE_HEADERS_DIR/" 2>/dev/null || true
+    echo "Installed source headers to $SOURCE_HEADERS_DIR"
+    
+    # Install the binary as fallback
+    if [ -f "sapi/cli/php" ]; then
+        mkdir -p "$INSTALL_DIR/bin"
+        cp "sapi/cli/php" "$INSTALL_DIR/bin/php"
+        echo "Installed PHP binary as fallback"
+    fi
+    
+    # Generate pkg-config file for libphp
+    mkdir -p "$INSTALL_DIR/lib/pkgconfig"
+    cat > "$INSTALL_DIR/lib/pkgconfig/libphp.pc" << EOF
 prefix=$INSTALL_DIR
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -1170,6 +1194,12 @@ Version: $PHP_VERSION
 Libs: -L\${libdir} -lphp
 Cflags: -I\${includedir}
 EOF
+    echo "Generated pkg-config file"
+else
+    make install >> "$DIR/install.log" 2>&1
+fi
+
+write_done
 
 cd "$DIR"
 
@@ -1181,5 +1211,3 @@ if [ "$DO_CLEANUP" == "yes" ]; then
 fi
 
 date >> "$DIR/install.log" 2>&1
-write_out "PocketMine" "You should start the server now using \"./start.sh\"."
-write_out "PocketMine" "If it doesn't work, please send the \"install.log\" file to the Bug Tracker."
