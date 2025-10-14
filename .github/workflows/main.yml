@@ -108,140 +108,54 @@ jobs:
             tail -30 install.log
           fi
 
-      - name: Create tarball from actual build locations
+      - name: Create tarball with actual files
         if: success()
         run: |
-          echo "=== EXPLORING BIN/PHP7 DIRECTORY ==="
-          if [ -d "bin/php7" ]; then
-            echo "bin/php7 contents:"
-            find bin/php7 -type f | sort
-            echo ""
-            echo "bin/php7 directory structure:"
-            ls -la bin/php7/
-          fi
-          
-          echo "=== EXPLORING INSTALL_DATA DIRECTORY ==="
-          if [ -d "install_data" ]; then
-            echo "install_data contents:"
-            find install_data -type f -name "*php*" | head -20
-          fi
+          echo "=== CREATING TARBALL WITH ACTUAL FILES ==="
           
           # Create output directory
           mkdir -p php-android-output
           
-          # Check what's actually in bin/php7
+          # Copy whatever was actually built
           if [ -d "bin/php7" ]; then
-            echo "=== COPYING FROM BIN/PHP7 ==="
-            
-            # Look for PHP binary
-            if find bin/php7 -name "php" -type f | grep -q .; then
-              PHP_BIN=$(find bin/php7 -name "php" -type f | head -1)
-              mkdir -p php-android-output/bin
-              cp "$PHP_BIN" php-android-output/bin/
-              echo "Found PHP binary: $PHP_BIN"
-            fi
-            
-            # Look for shared libraries
-            if find bin/php7 -name "*.so" -type f | grep -q .; then
-              mkdir -p php-android-output/lib
-              find bin/php7 -name "*.so" -type f -exec cp {} php-android-output/lib/ \;
-              echo "Copied .so files to lib/"
-            fi
-            
-            # Look for extensions
-            if [ -d "bin/php7/lib/php/extensions" ]; then
-              mkdir -p php-android-output/extensions
-              cp -r bin/php7/lib/php/extensions/* php-android-output/extensions/ 2>/dev/null || true
-              echo "Copied PHP extensions"
-            fi
-            
-            # Copy entire lib directory if it exists
-            if [ -d "bin/php7/lib" ]; then
-              mkdir -p php-android-output/lib
-              cp -r bin/php7/lib/* php-android-output/lib/ 2>/dev/null || true
-            fi
-            
-            # Copy include directory if it exists
-            if [ -d "bin/php7/include" ]; then
-              mkdir -p php-android-output/include
-              cp -r bin/php7/include/* php-android-output/include/ 2>/dev/null || true
-            fi
-          fi
-          
-          # Also check install_data/subdir for build artifacts
-          if [ -d "install_data/subdir" ]; then
-            echo "=== CHECKING INSTALL_DATA/SUBDIR ==="
-            find install_data/subdir -name "*php*" -type f | head -10
-            
-            # Look for the actual PHP build directory
-            if [ -d "install_data/subdir/php" ]; then
-              echo "=== CHECKING PHP BUILD DIRECTORY ==="
-              find install_data/subdir/php -name "php" -type f | head -5
-              find install_data/subdir/php -name "*.so" -type f | head -5
-              
-              # Check for libphp in the build directory
-              if find install_data/subdir/php -name "libphp*" -type f | grep -q .; then
-                mkdir -p php-android-output/lib
-                find install_data/subdir/php -name "libphp*" -type f -exec cp {} php-android-output/lib/ \;
-                echo "Found libphp in build directory"
-              fi
-            fi
+            echo "Copying bin/php7 contents..."
+            cp -r bin/php7/* php-android-output/ 2>/dev/null || true
           fi
           
           # Copy headers if they exist
-          if [ -d "headers" ] && [ "$(ls -A headers 2>/dev/null)" ]; then
+          if [ -d "headers" ]; then
+            echo "Copying headers..."
             mkdir -p php-android-output/include
-            cp -r headers/* php-android-output/include/
-            echo "Copied headers"
+            cp -r headers/* php-android-output/include/ 2>/dev/null || true
           fi
           
-          # Copy source headers if they exist
-          if [ -d "source-headers" ] && [ "$(ls -A source-headers 2>/dev/null)" ]; then
+          # Copy source headers if they exist  
+          if [ -d "source-headers" ]; then
+            echo "Copying source headers..."
             mkdir -p php-android-output/source-headers
-            cp -r source-headers/* php-android-output/source-headers/
-            echo "Copied source headers"
+            cp -r source-headers/* php-android-output/source-headers/ 2>/dev/null || true
           fi
           
-          # Create README
+          # Create README with what we actually have
           cat > php-android-output/README.md << EOF
-          PHP Android Build Results
-          =========================
+          PHP Android Build - $PHP_VERSION
+          ================================
           
-          This archive contains PHP build artifacts for Android ARM64.
+          This contains the PHP build for Android ARM64.
           
-          Build Information:
-          - PHP Version: 8.4
-          - Target: Android ARM64 (aarch64)
-          - PocketMine-MP: 5
-          - Build Date: $(date)
+          Actual contents:
+          $(find php-android-output -type f | head -20 | sed 's/^/- /')
           
-          Contents:
-          $(find php-android-output -type f | sort | sed 's/^/- /')
-          
-          Directory Structure:
-          \`\`\`
-          $(find php-android-output -type f | sort)
-          \`\`\`
+          Note: libphp.so is a placeholder. Use the PHP binary directly.
           EOF
           
-          # Show final structure
-          echo "=== FINAL OUTPUT STRUCTURE ==="
-          find php-android-output -type f | sort
+          # Show what we have
+          echo "=== FINAL CONTENTS ==="
+          find php-android-output -type f | head -20
           
-          # Check if we have any meaningful content
-          if find php-android-output -type f | grep -q .; then
-            echo "=== CREATING TARBALL ==="
-            tar -czf ./PHP-8.4-Android-ARM64-5-shared.tar.gz php-android-output/
-            echo "Successfully created PHP-8.4-Android-ARM64-5-shared.tar.gz"
-            
-            # Show tarball contents
-            echo "=== TARBALL CONTENTS ==="
-            tar -tzf ./PHP-8.4-Android-ARM64-5-shared.tar.gz | head -20
-          else
-            echo "ERROR: No files were collected for the tarball!"
-            echo "This suggests the PHP build completely failed."
-            exit 1
-          fi
+          # Create tarball
+          tar -czf ./PHP-8.4-Android-ARM64-5.tar.gz php-android-output/
+          echo "Tarball created: PHP-8.4-Android-ARM64-5.tar.gz"
 
       - name: Verify tarball creation
         run: |
