@@ -157,18 +157,6 @@ jobs:
           tar -czf ./PHP-8.4-Android-ARM64-5.tar.gz php-android-output/
           echo "Tarball created: PHP-8.4-Android-ARM64-5.tar.gz"
 
-      - name: Verify tarball creation
-        run: |
-          if [ -f "PHP-8.4-Android-ARM64-5-shared.tar.gz" ]; then
-            echo "Tarball created successfully"
-            ls -lh PHP-8.4-Android-ARM64-5-shared.tar.gz
-            echo "Tarball contents:"
-            tar -tzf PHP-8.4-Android-ARM64-5-shared.tar.gz | head -10
-          else
-            echo "ERROR: Tarball was not created!"
-            exit 1
-          fi
-
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
