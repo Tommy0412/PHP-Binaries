@@ -1052,15 +1052,13 @@ write_library "PHP" "$PHP_VERSION"
 
 write_configure
 cd php
-
-# Remove existing configuration
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
 rm -rf ./autom4te.cache/ >> "$DIR/install.log" 2>&1
 rm -f ./configure >> "$DIR/install.log" 2>&1
 
 ./buildconf --force >> "$DIR/install.log" 2>&1
 
-# Build PHP as static binary first (this works)
+# SIMPLE Android PHP build - just build it as static binary
 RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$INSTALL_DIR" \
 --exec-prefix="$INSTALL_DIR" \
 --with-curl \
@@ -1114,95 +1112,9 @@ $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 
 write_compile
-
-# Build PHP
 make -j $THREADS >> "$DIR/install.log" 2>&1
-
 write_install
-
-# Install PHP
 make install >> "$DIR/install.log" 2>&1
-
-# Create the required output structure
-echo "Creating output structure..."
-
-# 1. Create libphp.so as a simple wrapper
-mkdir -p "$INSTALL_DIR/lib"
-cat > "$INSTALL_DIR/lib/libphp.so" << 'EOF'
-/* 
- * libphp.so placeholder
- * Actual PHP functionality is in the PHP binary
- * This is a workaround for Android embedding
- */
-EOF
-echo "Created libphp.so placeholder"
-
-# 2. Create headers directory with basic structure
-mkdir -p "$HEADERS_DIR"
-mkdir -p "$HEADERS_DIR/main"
-mkdir -p "$HEADERS_DIR/Zend"
-mkdir -p "$HEADERS_DIR/TSRM"
-
-# Create basic PHP header
-cat > "$HEADERS_DIR/main/php.h" << EOF
-#ifndef PHP_H
-#define PHP_H
-
-#define PHP_EMBED_VERSION "$PHP_VERSION"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int php_embed_init(int argc, char** argv);
-int php_embed_shutdown(void);
-int php_embed_execute_script(const char* filename);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-EOF
-
-# Create Zend header
-cat > "$HEADERS_DIR/Zend/zend.h" << 'EOF'
-#ifndef ZEND_H
-#define ZEND_H
-
-typedef struct _zval_struct zval;
-typedef struct _zend_string zend_string;
-
-#endif
-EOF
-
-echo "Created basic headers"
-
-# 3. Copy actual PHP source to source-headers
-mkdir -p "$SOURCE_HEADERS_DIR"
-# Copy the main PHP source files
-find . -name "*.h" -exec cp --parents {} "$SOURCE_HEADERS_DIR/" \; 2>/dev/null || true
-find . -name "*.c" -exec cp --parents {} "$SOURCE_HEADERS_DIR/" \; 2>/dev/null || true
-
-echo "Copied source headers"
-
-# 4. Create pkg-config file
-mkdir -p "$INSTALL_DIR/lib/pkgconfig"
-cat > "$INSTALL_DIR/lib/pkgconfig/libphp.pc" << EOF
-prefix=$INSTALL_DIR
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-
-Name: libphp
-Description: PHP Embedded Library
-Version: $PHP_VERSION
-Libs: -L\${libdir} -lphp
-Cflags: -I\${includedir}
-EOF
-
-echo "Created pkg-config file"
-
 write_done
 
 cd "$DIR"
