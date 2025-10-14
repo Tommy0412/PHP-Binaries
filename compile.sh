@@ -1002,7 +1002,7 @@ fi
 # build_libxml2
 build_libzip
 build_sqlite3
-build_libdeflate
+# build_libdeflate
 
 # PECL libraries
 
@@ -1040,7 +1040,7 @@ write_out "PHP" "Fetching extensions"
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
 # get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "php" "pecl-database-leveldb"
 # get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
-get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
+# get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
 
 get_github_extension "xdebug" "$EXT_XDEBUG_VERSION" "xdebug" "xdebug"
 
