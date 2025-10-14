@@ -929,13 +929,13 @@ function build_sqlite3 {
 	fi
 
 	write_library sqlite3 "$SQLITE3_VERSION"
-	local sqlite3_dir="./sqlite3-$SQLITE3_VERSION"
+	local sqlite3_dir="./sqlite-autoconf-$SQLITE3_VERSION"  # CHANGED THIS LINE
 
 	if cant_use_cache "$sqlite3_dir"; then
 		rm -rf "$sqlite3_dir"
 		write_download
 		download_from_mirror "sqlite-autoconf-$SQLITE3_VERSION.tar.gz" "sqlite3" | tar -zx >> "$DIR/install.log" 2>&1
-		mv sqlite-autoconf-$SQLITE3_VERSION "$sqlite3_dir" >> "$DIR/install.log" 2>&1
+		# REMOVED the mv command - the directory is already correct
 		write_configure
 		cd "$sqlite3_dir"
 		LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
