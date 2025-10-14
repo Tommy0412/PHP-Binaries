@@ -999,7 +999,7 @@ if [ "$COMPILE_GD" == "yes" ]; then
 	build_libpng
 	build_libjpeg
 fi
-build_libxml2
+# build_libxml2
 build_libzip
 build_sqlite3
 build_libdeflate
