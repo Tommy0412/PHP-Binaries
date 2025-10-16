@@ -91,8 +91,6 @@ BUILD_DIR="$BASE_BUILD_DIR/subdir"
 LIB_BUILD_DIR="$BUILD_DIR/lib"
 INSTALL_DIR="$DIR/bin/php7"
 SYMBOLS_DIR="$DIR/bin-debug/php7"
-HEADERS_DIR="$DIR/headers"
-SOURCE_HEADERS_DIR="$DIR/source-headers"
 
 date > "$DIR/install.log" 2>&1
 
@@ -135,14 +133,14 @@ COMPILE_TARGET=""
 IS_CROSSCOMPILE="no"
 IS_WINDOWS="no"
 DO_OPTIMIZE="yes"
-DO_STATIC="no"  # Changed to no to build shared library
+DO_STATIC="no"
 DO_CLEANUP="yes"
 COMPILE_DEBUG="no"
 HAVE_VALGRIND="--without-valgrind"
 HAVE_OPCACHE="yes"
-HAVE_XDEBUG="no"
+HAVE_XDEBUG="yes"
 FSANITIZE_OPTIONS=""
-FLAGS_LTO="-flto -fvisibility=hidden"
+FLAGS_LTO=""
 HAVE_OPCACHE_JIT="no"
 
 COMPILE_GD="no"
@@ -154,7 +152,6 @@ DOWNLOAD_CACHE="$DIR/download_cache"
 SEPARATE_SYMBOLS="no"
 
 PHP_VERSION_BASE="auto"
-BUILD_SHARED_LIB="yes"  # New flag to build as shared library
 
 while getopts "::t:j:sdDxfgnva:P:c:l:Jiz:" OPTION; do
 
@@ -225,7 +222,7 @@ while getopts "::t:j:sdDxfgnva:P:c:l:Jiz:" OPTION; do
 			;;
 		J)
 			write_out "opt" "Compiling JIT support in OPcache"
-HAVE_OPCACHE_JIT="no"
+			HAVE_OPCACHE_JIT="yes"
 			;;
 		i)
 			write_out "opt" "Disabling SSL certificate verification for downloads"
@@ -383,9 +380,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		[ -z "$mtune" ] && mtune=generic;
 		TOOLCHAIN_PREFIX="aarch64-linux-musl"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-static -Os -ffunction-sections -fdata-sections $CFLAGS"
-		CXXFLAGS="-static -Os -ffunction-sections -fdata-sections $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,--gc-sections -Wl,--strip-all"
+		CFLAGS="-static $CFLAGS"
+		CXXFLAGS="-static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-aarch64"
 		export ac_cv_func_fnmatch_works=yes #musl should be OK
@@ -397,9 +394,9 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		[ -z "$mtune" ] && mtune="generic-armv7-a"
 		TOOLCHAIN_PREFIX="arm-linux-musleabihf"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static -Os -ffunction-sections -fdata-sections $CFLAGS"
-		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static -Os -ffunction-sections -fdata-sections $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -lc -Wl,--gc-sections -Wl,--strip-all"
+		CFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CFLAGS"
+		CXXFLAGS="-march=$march -mtune=$mtune -mfpu=neon -mfloat-abi=hard -static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -lc"
 		DO_STATIC="yes"
 		OPENSSL_TARGET="linux-generic32"
 		export ac_cv_func_fnmatch_works=yes
@@ -459,7 +456,7 @@ fi
 
 if [ "$DO_OPTIMIZE" != "no" ]; then
 	#FLAGS_LTO="-fvisibility=hidden -flto"
-	CFLAGS="$CFLAGS -Os"  # Use -Os for size optimization instead of -O2
+	CFLAGS="$CFLAGS -O2"
 	GENERIC_CFLAGS="$CFLAGS -ftree-vectorize -fomit-frame-pointer"
 	$CC $CFLAGS $GENERIC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
 	if [ $? -eq 0 ]; then
@@ -509,8 +506,6 @@ mkdir -m 0755 "$BASE_BUILD_DIR" >> "$DIR/install.log" 2>&1
 mkdir -m 0755 "$BUILD_DIR" >> "$DIR/install.log" 2>&1
 mkdir -m 0755 -p $INSTALL_DIR >> "$DIR/install.log" 2>&1
 mkdir -m 0755 -p "$LIB_BUILD_DIR" >> "$DIR/install.log" 2>&1
-mkdir -m 0755 -p "$HEADERS_DIR" >> "$DIR/install.log" 2>&1
-mkdir -m 0755 -p "$SOURCE_HEADERS_DIR" >> "$DIR/install.log" 2>&1
 cd "$BUILD_DIR"
 set -e
 
@@ -778,9 +773,9 @@ function build_leveldb {
 
 function build_libpng {
 	if [ "$DO_STATIC" == "yes" ]; then
-		local PNG_EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
+		local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
 	else
-		local PNG_EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
+		local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
 	fi
 
 	write_library libpng "$LIBPNG_VERSION"
@@ -789,18 +784,21 @@ function build_libpng {
 		rm -rf "$libpng_dir"
 		write_download
 		download_from_mirror "libpng-$LIBPNG_VERSION.tar.gz" "libpng" | tar -zx >> "$DIR/install.log" 2>&1
+
 		write_configure
 		cd "$libpng_dir"
 		LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
 		--prefix="$INSTALL_DIR" \
-		$PNG_EXTRA_FLAGS \
+		$EXTRA_FLAGS \
 		$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+
 		write_compile
 		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
 	else
 		write_caching
 		cd "$libpng_dir"
 	fi
+
 	write_install
 	make install >> "$DIR/install.log" 2>&1
 	cd ..
@@ -809,9 +807,9 @@ function build_libpng {
 
 function build_libjpeg {
 	if [ "$DO_STATIC" == "yes" ]; then
-		local JPEG_EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
+		local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
 	else
-		local JPEG_EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
+		local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
 	fi
 
 	write_library libjpeg "$LIBJPEG_VERSION"
@@ -819,14 +817,16 @@ function build_libjpeg {
 	if cant_use_cache "$libjpeg_dir"; then
 		rm -rf "$libjpeg_dir"
 		write_download
-		download_from_mirror "libjpeg-$LIBJPEG_VERSION.tar.gz" "libjpeg" | tar -zx >> "$DIR/install.log" 2>&1
-		mv libjpeg "$libjpeg_dir"
+		download_from_mirror "jpegsrc.v$LIBJPEG_VERSION.tar.gz" "libjpeg" | tar -zx >> "$DIR/install.log" 2>&1
+		mv jpeg-$LIBJPEG_VERSION "$libjpeg_dir"
+
 		write_configure
 		cd "$libjpeg_dir"
 		LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
 		--prefix="$INSTALL_DIR" \
-		$JPEG_EXTRA_FLAGS \
+		$EXTRA_FLAGS \
 		$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+
 		write_compile
 		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
 	else
@@ -846,7 +846,9 @@ function build_libxml2 {
 	if cant_use_cache "$libxml2_dir"; then
 		rm -rf "$libxml2_dir"
 		write_download
-		download_from_mirror "libxml2-v$LIBXML_VERSION.tar.gz" "libxml2" | tar -zx >> "$DIR/install.log" 2>&1
+		download_from_mirror "libxml2-v$LIBXML_VERSION.tar.gz" "libxml2" | tar -xz >> "$DIR/install.log" 2>&1
+		mv libxml2-v$LIBXML_VERSION "$libxml2_dir"
+
 		write_configure
 		cd "$libxml2_dir"
 		if [ "$DO_STATIC" == "yes" ]; then
@@ -863,6 +865,7 @@ function build_libxml2 {
 			--config-cache \
 			$EXTRA_FLAGS \
 			$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+
 		write_compile
 		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
 	else
@@ -901,14 +904,13 @@ function build_libzip {
 			-DBUILD_REGRESS=OFF \
 			-DBUILD_EXAMPLES=OFF \
 			-DBUILD_DOC=OFF \
-			-DOPENSSL_USE_STATIC_LIBS=TRUE \
 			-DENABLE_BZIP2=OFF \
 			-DENABLE_COMMONCRYPTO=OFF \
 			-DENABLE_GNUTLS=OFF \
 			-DENABLE_MBEDTLS=OFF \
 			-DENABLE_LZMA=OFF \
-			-DENABLE_ZSTD=OFF \
-			-DENABLE_OPENSSL=ON >> "$DIR/install.log" 2>&1
+			-DBUILD_OSSFUZZ=OFF \
+			-DENABLE_ZSTD=OFF >> "$DIR/install.log" 2>&1
 		write_compile
 		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
 	else
@@ -923,25 +925,24 @@ function build_libzip {
 
 function build_sqlite3 {
 	if [ "$DO_STATIC" == "yes" ]; then
-		local EXTRA_FLAGS="--enable-static=yes --enable-shared=no"
+		local EXTRA_FLAGS="--disable-shared"
 	else
-		local EXTRA_FLAGS="--enable-static=no --enable-shared=yes"
+		local EXTRA_FLAGS="--disable-static"
 	fi
 
 	write_library sqlite3 "$SQLITE3_VERSION"
-	local sqlite3_dir="./sqlite-autoconf-$SQLITE3_VERSION"  # CHANGED THIS LINE
+	local sqlite3_dir="./sqlite3-$SQLITE3_VERSION"
 
 	if cant_use_cache "$sqlite3_dir"; then
 		rm -rf "$sqlite3_dir"
 		write_download
 		download_from_mirror "sqlite-autoconf-$SQLITE3_VERSION.tar.gz" "sqlite3" | tar -zx >> "$DIR/install.log" 2>&1
-		# REMOVED the mv command - the directory is already correct
+		mv sqlite-autoconf-$SQLITE3_VERSION "$sqlite3_dir" >> "$DIR/install.log" 2>&1
 		write_configure
 		cd "$sqlite3_dir"
 		LDFLAGS="$LDFLAGS -L${INSTALL_DIR}/lib" CPPFLAGS="$CPPFLAGS -I${INSTALL_DIR}/include" RANLIB=$RANLIB ./configure \
 		--prefix="$INSTALL_DIR" \
 		--disable-dependency-tracking \
-		--enable-static-shell=no \
 		$EXTRA_FLAGS \
 		$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 		write_compile
@@ -960,24 +961,25 @@ function build_libdeflate {
 	write_library libdeflate "$LIBDEFLATE_VERSION"
 	local libdeflate_dir="./libdeflate-$LIBDEFLATE_VERSION"
 
+	if [ "$DO_STATIC" == "yes" ]; then
+		local CMAKE_LIBDEFLATE_EXTRA_FLAGS="-DLIBDEFLATE_BUILD_STATIC_LIB=ON -DLIBDEFLATE_BUILD_SHARED_LIB=OFF"
+	else
+		local CMAKE_LIBDEFLATE_EXTRA_FLAGS="-DLIBDEFLATE_BUILD_STATIC_LIB=OFF -DLIBDEFLATE_BUILD_SHARED_LIB=ON"
+	fi
+
 	if cant_use_cache "$libdeflate_dir"; then
 		rm -rf "$libdeflate_dir"
 		write_download
 		download_github_src "ebiggers/libdeflate" "$LIBDEFLATE_VERSION" "libdeflate" | tar -zx >> "$DIR/install.log" 2>&1
 		cd "$libdeflate_dir"
 		write_configure
-		if [ "$DO_STATIC" == "yes" ]; then
-			local EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
-		else
-			local EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
-		fi
 		cmake . \
 			-DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
 			-DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
 			-DCMAKE_INSTALL_LIBDIR=lib \
-			-DCMAKE_BUILD_TYPE=Release \
 			$CMAKE_GLOBAL_EXTRA_FLAGS \
-			$EXTRA_FLAGS >> "$DIR/install.log" 2>&1
+			-DLIBDEFLATE_BUILD_GZIP=OFF \
+			$CMAKE_LIBDEFLATE_EXTRA_FLAGS >> "$DIR/install.log" 2>&1
 		write_compile
 		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
 	else
@@ -990,6 +992,8 @@ function build_libdeflate {
 	write_done
 }
 
+cd "$LIB_BUILD_DIR"
+
 build_zlib
 build_gmp
 build_openssl
@@ -998,11 +1002,16 @@ build_yaml
 if [ "$COMPILE_GD" == "yes" ]; then
 	build_libpng
 	build_libjpeg
+	HAS_GD="--enable-gd"
+	HAS_LIBJPEG="--with-jpeg"
+else
+	HAS_GD=""
+	HAS_LIBJPEG=""
 fi
-# build_libxml2
+
+build_libxml2
 build_libzip
 build_sqlite3
-# build_libdeflate
 
 # PECL libraries
 
@@ -1012,14 +1021,14 @@ build_sqlite3
 # 4: Name of extracted directory to move
 function get_extension_tar_gz {
 	echo -n "  $1: downloading $2..."
-	download_file "$3" "php-$1" | tar -zx >> "$DIR/install.log" 2>&1
+	download_file "$3" "php-ext-$1" | tar -zx >> "$DIR/install.log" 2>&1
 	mv "$4" "$BUILD_DIR/php/ext/$1"
 	write_done
 }
 
 # 1: extension name
 # 2: extension version
-# 3: github user/org
+# 3: github user name
 # 4: github repo name
 # 5: version prefix (optional)
 function get_github_extension {
@@ -1033,20 +1042,29 @@ function get_pecl_extension {
 }
 
 cd "$BUILD_DIR/php"
-write_out "PHP" "Fetching extensions"
+write_out "PHP" "Downloading additional extensions..."
 
-# get_github_extension "pthreads" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
+get_github_extension "pmmpthread" "$EXT_PMMPTHREAD_VERSION" "pmmp" "ext-pmmpthread"
 
 get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
-# get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "php" "pecl-database-leveldb"
-# get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
-# get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
 
-get_github_extension "xdebug" "$EXT_XDEBUG_VERSION" "xdebug" "xdebug"
+get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-#vget_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
+get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
 
-# get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
+echo -n "  crypto: downloading $EXT_CRYPTO_VERSION..."
+git clone https://github.com/bukka/php-crypto.git "$BUILD_DIR/php/ext/crypto" >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR/php/ext/crypto"
+git checkout "$EXT_CRYPTO_VERSION" >> "$DIR/install.log" 2>&1
+git submodule update --init --recursive >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR"
+write_done
+
+get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
+
+get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
+
+get_github_extension "libdeflate" "$EXT_LIBDEFLATE_VERSION" "pmmp" "ext-libdeflate"
 
 write_library "PHP" "$PHP_VERSION"
 
@@ -1058,18 +1076,85 @@ rm -f ./configure >> "$DIR/install.log" 2>&1
 
 ./buildconf --force >> "$DIR/install.log" 2>&1
 
-# SIMPLE Android PHP build - just build it as static binary
+#hack for curl with pkg-config (ext/curl doesn't give --static to pkg-config on static builds)
+if [ "$DO_STATIC" == "yes" ]; then
+	if [ -z "$PKG_CONFIG" ]; then
+		PKG_CONFIG="$(which pkg-config)" || true
+	fi
+	if [ ! -z "$PKG_CONFIG" ]; then
+		#only export this if pkg-config exists, otherwise leave it (it'll fall back to curl-config)
+
+		echo '#!/bin/sh' > "$BUILD_DIR/pkg-config-wrapper"
+		echo 'exec '$PKG_CONFIG' "$@" --static' >> "$BUILD_DIR/pkg-config-wrapper"
+		chmod +x "$BUILD_DIR/pkg-config-wrapper"
+		export PKG_CONFIG="$BUILD_DIR/pkg-config-wrapper"
+	fi
+fi
+
+if [ "$IS_CROSSCOMPILE" == "yes" ]; then
+	sed -i=".backup" 's/pthreads_working=no/pthreads_working=yes/' ./configure
+	if [ "$IS_WINDOWS" != "yes" ]; then
+		if [ "$COMPILE_FOR_ANDROID" == "no" ]; then
+			export LIBS="$LIBS -lpthread -ldl -lresolv"
+		else
+			#workarounds for musl 1.2.5
+			if [ "$PHP_VERSION_ID" -lt 80400 ]; then
+				sed -i=".backup" 's/cookie_io_functions_use_off64_t=yes/cookie_io_functions_use_off64_t=no/' ./configure
+				export ac_cv_pread=yes
+				export ac_cv_pwrite=yes
+			else
+				export php_cv_type_cookie_off64_t=no
+				export php_cv_func_pread=yes
+				export php_cv_func_pwrite=yes
+			fi
+			export LIBS="$LIBS -lpthread -lresolv"
+		fi
+	else
+		export LIBS="$LIBS -lpthread"
+	fi
+
+	mv ext/mysqlnd/config9.m4 ext/mysqlnd/config.m4
+	sed  -i=".backup" "s{ext/mysqlnd/php_mysqlnd_config.h{config.h{" ext/mysqlnd/mysqlnd_portability.h
+	
+	# Fix for static linking issues with libgcc_s
+	export LDFLAGS="$LDFLAGS -Wl,--no-as-needed"
+elif [ "$DO_STATIC" == "yes" ]; then
+export LIBS="$LIBS -ldl"
+fi
+
+if [ "$IS_WINDOWS" != "yes" ]; then
+	HAVE_PCNTL="--enable-pcntl"
+else
+	HAVE_PCNTL="--disable-pcntl"
+	cp -f ./win32/build/config.* ./main >> "$DIR/install.log" 2>&1
+	sed 's:@PREFIX@:$DIR/bin/php7:' ./main/config.w32.h.in > ./wmain/config.w32.h 2>> "$DIR/install.log"
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]] && [[ "$IS_CROSSCOMPILE" != "yes" ]]; then
+	sed -i=".backup" 's/flock_type=unknown/flock_type=bsd/' ./configure
+	export EXTRA_CFLAGS=-lresolv
+fi
+
+if [[ "$COMPILE_DEBUG" == "yes" ]]; then
+	HAS_DEBUG="--enable-debug"
+else
+	HAS_DEBUG="--disable-debug"
+fi
+
+if [ "$FSANITIZE_OPTIONS" != "" ]; then
+	CFLAGS="$CFLAGS -fsanitize=$FSANITIZE_OPTIONS -fno-omit-frame-pointer"
+	CXXFLAGS="$CXXFLAGS -fsanitize=$FSANITIZE_OPTIONS -fno-omit-frame-pointer"
+	LDFLAGS="-fsanitize=$FSANITIZE_OPTIONS $LDFLAGS"
+fi
+
 RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$INSTALL_DIR" \
 --exec-prefix="$INSTALL_DIR" \
 --with-curl \
 --with-zlib \
---with-zlib-dir="$INSTALL_DIR" \
 --with-gmp \
 --with-yaml \
 --with-openssl \
---with-openssl-dir="$INSTALL_DIR" \
 --with-zip \
---with-zip-dir="$INSTALL_DIR" \
 $HAS_LIBJPEG \
 $HAS_GD \
 --without-readline \
@@ -1079,7 +1164,6 @@ $HAS_DEBUG \
 --enable-calendar \
 --enable-fileinfo \
 --with-libxml \
---with-libxml-dir="$INSTALL_DIR" \
 --enable-xml \
 --enable-dom \
 --enable-simplexml \
@@ -1091,8 +1175,7 @@ $HAS_DEBUG \
 --without-pear \
 --without-iconv \
 --with-pdo-sqlite \
---with-sqlite3="$INSTALL_DIR" \
---with-pdo-mysql=mysqlnd \
+--with-pdo-mysql \
 --with-pic \
 --enable-phar \
 --enable-ctype \
@@ -1108,22 +1191,166 @@ $HAVE_MYSQLI \
 --enable-ftp \
 --enable-opcache=$HAVE_OPCACHE \
 --enable-opcache-jit=$HAVE_OPCACHE_JIT \
+--enable-igbinary \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
-
 write_compile
+if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
+	sed -i=".backup" 's/-export-dynamic/-all-static/g' Makefile
+fi
+sed -i=".backup" 's/PHP_BINARIES. pharcmd$/PHP_BINARIES)/g' Makefile
+sed -i=".backup" 's/install-programs install-pharcmd$/install-programs/g' Makefile
+
+if [[ "$DO_STATIC" == "yes" ]]; then
+	sed -i=".backup" 's/--mode=link $(CC)/--mode=link $(CXX)/g' Makefile
+	# Fix for libgcc_s linking issues in static builds
+	sed -i=".backup" 's/-lgcc_s//g' Makefile
+	# Fix opcache linking specifically - remove problematic static flags
+	sed -i=".backup" 's/-all-static/-static/g' Makefile
+fi
+
 make -j $THREADS >> "$DIR/install.log" 2>&1
 write_install
 make install >> "$DIR/install.log" 2>&1
+
+function relativize_macos_library_paths {
+	IFS=$'\n' OTOOL_OUTPUT=($(otool -L "$1"))
+
+	for (( i=0; i<${#OTOOL_OUTPUT[@]}; i++ ))
+		do
+		CURRENT_DYLIB_NAME=$(echo ${OTOOL_OUTPUT[$i]} | sed 's# (compatibility version .*##' | xargs)
+		if [[ "$CURRENT_DYLIB_NAME" == "$INSTALL_DIR/"* ]]; then
+			NEW_DYLIB_NAME=$(echo "$CURRENT_DYLIB_NAME" | sed "s{$INSTALL_DIR{@loader_path/..{" | xargs)
+			install_name_tool -change "$CURRENT_DYLIB_NAME" "$NEW_DYLIB_NAME" "$1" >> "$DIR/install.log" 2>&1
+		elif [[ "$CURRENT_DYLIB_NAME" != "/usr/lib/"* ]] && [[ "$CURRENT_DYLIB_NAME" != "/System/"* ]] && [[ "$CURRENT_DYLIB_NAME" != "@loader_path"* ]] && [[ "$CURRENT_DYLIB_NAME" != "@rpath"* ]]; then
+			write_out "ERROR" "Detected linkage to non-local non-system library $CURRENT_DYLIB_NAME by $1"
+			exit 1
+		fi
+	done
+}
+
+function relativize_macos_all_libraries_paths {
+	set +e
+	for _library in $(find "$INSTALL_DIR" -name "*.dylib" -o -name "*.so"); do
+		relativize_macos_library_paths "$_library"
+	done
+	set -e
+}
+
+if [[ "$(uname -s)" == "Darwin" ]] && [[ "$IS_CROSSCOMPILE" != "yes" ]]; then
+	set +e
+	install_name_tool -delete_rpath "$INSTALL_DIR/lib" "$INSTALL_DIR/bin/php" >> "$DIR/install.log" 2>&1
+
+	relativize_macos_library_paths "$INSTALL_DIR/bin/php"
+
+	relativize_macos_all_libraries_paths
+	set -e
+fi
+
+write_status "generating php.ini"
+trap - DEBUG
+TIMEZONE=$(date +%Z)
+echo "memory_limit=1024M" >> "$INSTALL_DIR/bin/php.ini"
+echo "date.timezone=$TIMEZONE" >> "$INSTALL_DIR/bin/php.ini"
+echo "short_open_tag=0" >> "$INSTALL_DIR/bin/php.ini"
+echo "asp_tags=0" >> "$INSTALL_DIR/bin/php.ini"
+echo "phar.require_hash=1" >> "$INSTALL_DIR/bin/php.ini"
+echo "igbinary.compact_strings=0" >> "$INSTALL_DIR/bin/php.ini"
+if [[ "$COMPILE_DEBUG" == "yes" ]]; then
+	echo "zend.assertions=1" >> "$INSTALL_DIR/bin/php.ini"
+else
+	echo "zend.assertions=-1" >> "$INSTALL_DIR/bin/php.ini"
+fi
+echo "error_reporting=-1" >> "$INSTALL_DIR/bin/php.ini"
+echo "display_errors=1" >> "$INSTALL_DIR/bin/php.ini"
+echo "display_startup_errors=1" >> "$INSTALL_DIR/bin/php.ini"
+echo "recursionguard.enabled=0 ;disabled due to minor performance impact, only enable this if you need it for debugging" >> "$INSTALL_DIR/bin/php.ini"
+
+if [ "$HAVE_OPCACHE" == "yes" ]; then
+	if [ "$PHP_VERSION_ID" -lt 80500 ]; then
+		echo "zend_extension=opcache.so" >> "$INSTALL_DIR/bin/php.ini"
+	fi
+	echo "opcache.enable=1" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.enable_cli=1" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.save_comments=1" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.validate_timestamps=1" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.revalidate_freq=0" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.file_update_protection=0" >> "$INSTALL_DIR/bin/php.ini"
+	echo "opcache.optimization_level=0x7FFEBFFF ;https://github.com/php/php-src/blob/53c1b485741f31a17b24f4db2b39afeb9f4c8aba/ext/opcache/Optimizer/zend_optimizer.h" >> "$INSTALL_DIR/bin/php.ini"
+	if [ "$HAVE_OPCACHE_JIT" == "yes" ]; then
+		echo "" >> "$INSTALL_DIR/bin/php.ini"
+		echo "; ---- ! WARNING ! ----" >> "$INSTALL_DIR/bin/php.ini"
+		echo "; JIT can provide big performance improvements, but it may make your server crash or behave in weird ways. Use it at your own risk." >> "$INSTALL_DIR/bin/php.ini"
+		echo "; See https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.jit for possible options." >> "$INSTALL_DIR/bin/php.ini"
+		echo "opcache.jit=off" >> "$INSTALL_DIR/bin/php.ini"
+		echo "opcache.jit_buffer_size=128M" >> "$INSTALL_DIR/bin/php.ini"
+	fi
+fi
+if [ "$COMPILE_TARGET" == "mac-"* ]; then
+	#we don't have permission to allocate executable memory on macOS due to not being codesigned
+	#workaround this for now by disabling PCRE JIT
+	echo "" >> "$INSTALL_DIR/bin/php.ini"
+	echo "pcre.jit=off" >> "$INSTALL_DIR/bin/php.ini"
+fi
+
 write_done
 
-cd "$DIR"
+if [[ "$HAVE_XDEBUG" == "yes" ]]; then
+	get_github_extension "xdebug" "$EXT_XDEBUG_VERSION" "xdebug" "xdebug"
+	write_library "xdebug" "$EXT_XDEBUG_VERSION"
+	cd "$BUILD_DIR/php/ext/xdebug"
+	write_configure
+	"$INSTALL_DIR/bin/phpize" >> "$DIR/install.log" 2>&1
+	./configure --with-php-config="$INSTALL_DIR/bin/php-config" >> "$DIR/install.log" 2>&1
+	write_compile
+	make -j4 >> "$DIR/install.log" 2>&1
+	write_install
+	make install >> "$DIR/install.log" 2>&1
+	echo "" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo ";WARNING: When loaded, xdebug 3.2.0 will cause segfaults whenever an uncaught error is thrown, even if xdebug.mode=off. Load it at your own risk." >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo ";zend_extension=xdebug.so" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo ";https://xdebug.org/docs/all_settings#mode" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo "xdebug.mode=off" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo "xdebug.start_with_request=yes" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo ";The following overrides allow profiler, gc stats and traces to work correctly in ZTS" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo "xdebug.profiler_output_name=cachegrind.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo "xdebug.gc_stats_output_name=gcstats.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	echo "xdebug.trace_output_name=trace.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
+	write_done
+	write_out INFO "Xdebug is included, but disabled by default. To enable it, change 'xdebug.mode' in your php.ini file."
+fi
 
+cd "$DIR"
 if [ "$DO_CLEANUP" == "yes" ]; then
 	write_out "INFO" "Cleaning up"
 	rm -r -f "$BUILD_DIR" >> "$DIR/install.log" 2>&1
-	rm -f "$INSTALL_DIR/bin/phpize" >> "$DIR/install.log" 2>&1
-	rm -f "$INSTALL_DIR/bin/php-config" >> "$DIR/install.log" 2>&1
+	rm -f "$INSTALL_DIR/bin/curl"* >> "$DIR/install.log" 2>&1
+	rm -f "$INSTALL_DIR/bin/curl-config"* >> "$DIR/install.log" 2>&1
+	rm -f "$INSTALL_DIR/bin/c_rehash"* >> "$DIR/install.log" 2>&1
+	rm -f "$INSTALL_DIR/bin/openssl"* >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/man" >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/share/man" >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/php" >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/misc" >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/lib/"*.a >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/lib/"*.la >> "$DIR/install.log" 2>&1
+	rm -r -f "$INSTALL_DIR/include" >> "$DIR/install.log" 2>&1
+fi
+
+if [ "$SEPARATE_SYMBOLS" != "no" ]; then
+	echo -n "[INFO] Separating debugging symbols into $SYMBOLS_DIR..."
+	rm -rf "$SYMBOLS_DIR" || true 2>&1
+	mkdir -p "$SYMBOLS_DIR" || true 2>&1
+	cp -r "$INSTALL_DIR"/* "$SYMBOLS_DIR"
+	cd "$INSTALL_DIR"
+	find "lib" \( -name '*.so' -o -name '*.so.*' -o -name '*.dylib' -o -name '*.dylib.*' \) -print0 | while IFS= read -r -d '' file; do
+		"$STRIP" -S "$file" >> "$DIR/install.log" 2>&1 || true #if this fails, this probably isn't an executable binary
+	done
+	for file in "bin/"*; do
+		"$STRIP" -S "$file" >> "$DIR/install.log" 2>&1 || true #if this fails, this probably isn't an executable binary
+	done
+	cd "$DIR"
+	write_done
 fi
 
 date >> "$DIR/install.log" 2>&1
