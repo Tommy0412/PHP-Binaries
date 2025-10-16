@@ -14,224 +14,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  android-build:
-    name: Build Android PHP Library (ARM64)
-    runs-on: ubuntu-latest
+  all-builds:
+    name: PM${{ matrix.pm-version-major }} - PHP ${{ matrix.php-version-base }}
+    strategy:
+      matrix:
+        include:
+          - pm-version-major: 5
+            php-version-base: "8.4"
 
-    env:
-      MUSL_CROSS_MAKE_VERSION: 43fcb1e63786b96add78f89d7454709ae0159fa0
+    uses: ./.github/workflows/main-pm-matrix.yml
+    with:
+      pm-version-major: ${{ matrix.pm-version-major }}
+      php-version-base: ${{ matrix.php-version-base }}
+      special-release: ${{ matrix.special-release || 'none' }}
+      pm-preview: ${{ matrix.pm-preview || false }}
+    secrets: inherit
 
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install tools and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y make autoconf automake libtool libtool-bin m4 wget libc-bin gzip bzip2 bison g++ git re2c upx-ucl cmake pkg-config
-
-      - name: Prepare compile.sh download cache
-        id: download-cache
-        uses: actions/cache@v4
-        with:
-          path: ./download_cache
-          key: compile-sh-cache-android-aarch64-${{ hashFiles('./compile.sh') }}
-          restore-keys: |
-            compile-sh-cache-android-aarch64-
-            compile-sh-cache-
-
-      - name: Fetch compiler cache
-        id: compiler-cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/compiler-android-aarch64
-          key: musl-cross-make-${{ env.MUSL_CROSS_MAKE_VERSION }}-android-aarch64
-
-      - name: Checkout musl-cross-make
-        if: steps.compiler-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v5
-        with:
-          repository: pmmp/musl-cross-make
-          path: musl-cross-make-android-aarch64
-          ref: ${{ env.MUSL_CROSS_MAKE_VERSION }}
-
-      - name: Build compiler
-        if: steps.compiler-cache.outputs.cache-hit != 'true'
-        working-directory: musl-cross-make-android-aarch64
-        run: |
-          echo "TARGET = aarch64-linux-musl" > config.mak
-          make -j$(nproc)
-          make install
-          mv ./output "${{ github.workspace }}/compiler-android-aarch64"
-
-      - name: Compile PHP
-        run: |
-          export PATH="${{ github.workspace }}/compiler-android-aarch64/bin:$PATH"
-          set -ex
-          trap "exit 1" ERR
-          # Build as shared library for Android
-          ./compile.sh -t android-aarch64 -x -j 4 -P 5 -c ./download_cache -z 8.4 2>&1 | tee build.log
-      
-      - name: Check what was actually built
-        run: |
-          echo "=== CHECKING BUILD RESULTS ==="
-          echo "--- Looking for PHP binary ---"
-          find . -name "php" -type f 2>/dev/null
-          echo "--- Looking for any compiled files ---"
-          find . -name "*.so" -o -name "*.a" -o -name "*.o" | head -20
-          echo "--- Checking if bin/php7 has content ---"
-          if [ -d "bin/php7" ]; then
-            echo "bin/php7 exists with:"
-            find bin/php7 -type f | head -20
-            echo "Total files in bin/php7: $(find bin/php7 -type f | wc -l)"
-          else
-            echo "bin/php7 directory does NOT exist"
-          fi
-      - name: Check compilation success
-        run: |
-          echo "=== CHECKING COMPILATION STATUS ==="
-          if grep -q "error:" build.log; then
-            echo "❌ BUILD ERRORS FOUND:"
-            grep "error:" build.log | tail -10
-          else
-            echo "✅ No obvious errors in build.log"
-          fi
-          
-          if grep -q "Build complete\|make.*install" build.log; then
-            echo "✅ Build appears to have completed"
-          else
-            echo "❌ Build does not appear to have completed"
-            echo "Last lines of build.log:"
-            tail -20 build.log
-          fi
-          
-      - name: Debug file structure
-        if: always()
-        run: |
-          echo "=== COMPLETE FILE STRUCTURE ==="
-          find . -type f -name "*.so" | head -20
-          echo "=== BIN DIRECTORY ==="
-          ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
-          echo "=== INSTALL_DATA DIRECTORY ==="
-          ls -la install_data/ 2>/dev/null || echo "install_data/ directory not found"
-          echo "=== CHECKING FOR LIBPHP ==="
-          find . -name "*libphp*" -type f 2>/dev/null | head -20
-          echo "=== CHECKING FOR PHP BINARIES ==="
-          find . -name "php" -type f 2>/dev/null | head -10
-          echo "=== CURRENT DIRECTORY CONTENTS ==="
-          ls -la
-
-      - name: Check install.log for PHP build status
-        if: always()
-        run: |
-          echo "=== CHECKING PHP BUILD STATUS FROM INSTALL.LOG ==="
-          if [ -f "install.log" ]; then
-            echo "--- Searching for PHP configuration ---"
-            grep -i "configure.*php" install.log | head -10 || echo "No PHP configuration found"
-            
-            echo ""
-            echo "--- Searching for PHP build results ---"
-            grep -i "libphp\|php.*build\|make.*install" install.log | tail -20 || echo "No PHP build results found"
-            
-            echo ""
-            echo "--- Checking if PHP was built as shared library ---"
-            grep -i "shared.*library\|enable.*shared" install.log | head -10 || echo "No shared library info found"
-            
-            echo ""
-            echo "--- Final build messages ---"
-            tail -30 install.log
-          fi
-
-      - name: Create tarball with actual files
-        if: success()
-        run: |
-          echo "=== CREATING TARBALL WITH ACTUAL FILES ==="
-          
-          # Create output directory
-          mkdir -p php-android-output
-          
-          # Copy whatever was actually built
-          if [ -d "bin/php7" ]; then
-            echo "Copying bin/php7 contents..."
-            cp -r bin/php7/* php-android-output/ 2>/dev/null || true
-          fi
-          
-          # Copy headers if they exist
-          if [ -d "headers" ]; then
-            echo "Copying headers..."
-            mkdir -p php-android-output/include
-            cp -r headers/* php-android-output/include/ 2>/dev/null || true
-          fi
-          
-          # Copy source headers if they exist  
-          if [ -d "source-headers" ]; then
-            echo "Copying source headers..."
-            mkdir -p php-android-output/source-headers
-            cp -r source-headers/* php-android-output/source-headers/ 2>/dev/null || true
-          fi
-          
-          # Create README with what we actually have
-          cat > php-android-output/README.md << EOF
-          PHP Android Build - $PHP_VERSION
-          ================================
-          
-          This contains the PHP build for Android ARM64.
-          
-          Actual contents:
-          $(find php-android-output -type f | head -20 | sed 's/^/- /')
-          
-          Note: libphp.so is a placeholder. Use the PHP binary directly.
-          EOF
-          
-          # Show what we have
-          echo "=== FINAL CONTENTS ==="
-          find php-android-output -type f | head -20
-          
-          # Create tarball
-          tar -czf ./PHP-8.4-Android-ARM64-5.tar.gz php-android-output/
-          echo "Tarball created: PHP-8.4-Android-ARM64-5.tar.gz"
-
-      - name: Verify tarball creation
-        run: |
-          if [ -f "PHP-8.4-Android-ARM64-5.tar.gz" ]; then  # CHANGED THIS LINE
-            echo "Tarball created successfully"
-            ls -lh PHP-8.4-Android-ARM64-5.tar.gz  # CHANGED THIS LINE
-            echo "Tarball contents:"
-            tar -tzf PHP-8.4-Android-ARM64-5.tar.gz | head -10  # CHANGED THIS LINE
-          else
-            echo "ERROR: Tarball was not created!"
-            exit 1
-          fi
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-arm64
-          path: build.log
-          if-no-files-found: warn
-
-      - name: Upload install log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: install-log-arm64
-          path: install.log
-          if-no-files-found: warn
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: PHP-8.4-Android-ARM64-5  # CHANGED FROM -shared
-          path: |
-            ./PHP-8.4-Android-ARM64-5.tar.gz  # CHANGED FROM -shared
-            ./build.log
-            ./install.log
-            ./compile.sh
-          if-no-files-found: error
-
-  publish-release:
-    name: Publish Release
-    needs: [android-build]
+  publish-archive-release:
+    name: Publish archive release
+    needs: [all-builds]
     runs-on: ubuntu-latest
     if: ${{ github.ref_name == 'stable' && github.ref_type == 'branch' && !contains(github.event.head_commit.message, '[no release]') }}
     
@@ -239,19 +40,41 @@ jobs:
       contents: write
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
         with:
-          name: PHP-8.4-Android-ARM64-5
-          path: ./
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find ./artifacts -name "*.tar.gz" -type f | head -20
+          echo "Total .tar.gz files:"
+          find ./artifacts -name "*.tar.gz" -type f | wc -l
+
+      - name: Generate release notes
+        run: |
+          echo "# PHP Binaries Release" > changelog.md
+          echo "" >> changelog.md
+          echo "**Build Information:**" >> changelog.md
+          echo "- Build Number: ${{ github.run_number }}" >> changelog.md
+          echo "- Commit: ${{ github.sha }}" >> changelog.md
+          echo "- Branch: ${{ github.ref_name }}" >> changelog.md
+          echo "- Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> changelog.md
+          echo "" >> changelog.md
+          echo "**Included Binaries:**" >> changelog.md
+          echo "\`\`\`" >> changelog.md
+          find ./artifacts -name "*.tar.gz" -type f -exec basename {} \; | sort >> changelog.md
+          echo "\`\`\`" >> changelog.md
 
       - name: Create release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1.20.0
         with:
-          files: PHP-8.4-Android-ARM64-5.tar.gz
-          tag_name: php-android-${{ github.run_number }}
-          name: PHP Android Build ${{ github.run_number }}
-          body: |
-            PHP 8.4 for Android ARM64
-            
-            Built from: ${{ github.sha }}
+          artifacts: "./artifacts/**/*.tar.gz"
+          name: PHP Binaries - Build ${{ github.run_number }}
+          tag: php-binaries-${{ github.run_number }}
+          commit: ${{ github.sha }}
+          allowUpdates: false
+          bodyFile: changelog.md
+          draft: false
+          prerelease: false
